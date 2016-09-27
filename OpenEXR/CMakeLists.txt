@@ -62,7 +62,9 @@ INCLUDE_DIRECTORIES (
 hunter_add_package(IlmBase)
 hunter_add_package(ZLIB)
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/")
+
+message("--------------------------------------------- ${CMAKE_CURRENT_SOURCE_DIR}/cmake/" )
 
 FIND_PACKAGE(ZLIB REQUIRED)
 INCLUDE_DIRECTORIES(${ZLIB_INCLUDE_DIR})
