@@ -6,5 +6,5 @@ if(BUILD_ILMBASE_SUBPROJECT)
 endif()
 
 if(BUILD_OPENEXR_SUBPROJECT)
-    add_subdirectory(OpenExr)
+    add_subdirectory(OpenEXR)
 endif()
