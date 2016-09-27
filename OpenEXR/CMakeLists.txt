@@ -1,5 +1,11 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 2.8)
 
+include("cmake/HunterGate.cmake")
+HunterGate(
+    URL "https://github.com/ruslo/hunter/archive/v0.15.33.tar.gz"
+    SHA1 "7849ccc2607964afd5fc8b48130473a133665670"
+)
+
 PROJECT (openexr)
 
 SET(OPENEXR_VERSION_MAJOR "2")
@@ -50,15 +56,32 @@ INCLUDE_DIRECTORIES (
   IlmImfFuzzTest
 )
 
+
+
+# Hunter deps stuff
+hunter_add_package(IlmBase)
+hunter_add_package(ZLIB)
+
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
+
 FIND_PACKAGE(ZLIB REQUIRED)
 INCLUDE_DIRECTORIES(${ZLIB_INCLUDE_DIR})
+
+FIND_PACKAGE(IlmBase REQUIRED)
+include_directories(${ILMBASE_INCLUDE_DIRS})
+
+
+
+
+
+
 
 IF (NOT WIN32)
   SET ( PTHREAD_LIB pthread )
 ENDIF()
 
-INCLUDE_DIRECTORIES ( ${ILMBASE_PACKAGE_PREFIX}/include/OpenEXR )
-LINK_DIRECTORIES ( ${ILMBASE_PACKAGE_PREFIX}/lib )
+#INCLUDE_DIRECTORIES ( ${ILMBASE_PACKAGE_PREFIX}/include/OpenEXR )
+#LINK_DIRECTORIES ( ${ILMBASE_PACKAGE_PREFIX}/lib )
 MESSAGE ( "ILMBASE_PACKAGE_PREFIX = " ${ILMBASE_PACKAGE_PREFIX})
 
 SET (LIB_TYPE STATIC)
@@ -188,33 +211,33 @@ SET_TARGET_PROPERTIES ( IlmImfUtil
   SOVERSION 22
   OUTPUT_NAME "IlmImfUtil${OPENEXR_LIBSUFFIX}"
   )
-  
-##########################
-# Example Code
-##########################
-ADD_SUBDIRECTORY ( IlmImfExamples )
-
-  
-##########################
-# Tests
-##########################
-ADD_SUBDIRECTORY ( IlmImfTest )
-ADD_SUBDIRECTORY ( IlmImfUtilTest )
-ADD_SUBDIRECTORY ( IlmImfFuzzTest )
-
-
-##########################
-# Binaries / Utilities
-##########################
-ADD_SUBDIRECTORY ( exrheader )
-ADD_SUBDIRECTORY ( exrmaketiled )
-ADD_SUBDIRECTORY ( exrstdattr )
-ADD_SUBDIRECTORY ( exrmakepreview )
-ADD_SUBDIRECTORY ( exrenvmap )
-ADD_SUBDIRECTORY ( exrmultiview )
-ADD_SUBDIRECTORY ( exrmultipart )
-
-
+#  
+###########################
+## Example Code
+###########################
+#ADD_SUBDIRECTORY ( IlmImfExamples )
+#
+#  
+###########################
+## Tests
+###########################
+#ADD_SUBDIRECTORY ( IlmImfTest )
+#ADD_SUBDIRECTORY ( IlmImfUtilTest )
+#ADD_SUBDIRECTORY ( IlmImfFuzzTest )
+#
+#
+###########################
+## Binaries / Utilities
+###########################
+#ADD_SUBDIRECTORY ( exrheader )
+#ADD_SUBDIRECTORY ( exrmaketiled )
+#ADD_SUBDIRECTORY ( exrstdattr )
+#ADD_SUBDIRECTORY ( exrmakepreview )
+#ADD_SUBDIRECTORY ( exrenvmap )
+#ADD_SUBDIRECTORY ( exrmultiview )
+#ADD_SUBDIRECTORY ( exrmultipart )
+#
+#
 ##########################
 # Installation
 ##########################
