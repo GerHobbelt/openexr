@@ -39,17 +39,13 @@ SET (BUILD_WITH_INSTALL_RPATH 1)
 
 ADD_DEFINITIONS ( -DHAVE_CONFIG_H -DILM_IMF_TEST_IMAGEDIR="${CMAKE_SOURCE_DIR}/IlmImfTest/" )
 
+
 INCLUDE_DIRECTORIES (
+  ${ILMBASE_INCLUDE_DIRS}
   ${CMAKE_CURRENT_BINARY_DIR}/config
-  IlmImf
-  IlmImfUtil
-  exrmaketiled
-  exrenvmap
-  exrmakepreview
-  exrmultiview
-  IlmImfFuzzTest
 )
 
+hunter_add_package(ZLIB)
 FIND_PACKAGE(ZLIB REQUIRED)
 INCLUDE_DIRECTORIES(${ZLIB_INCLUDE_DIR})
 
@@ -179,42 +175,42 @@ SET_TARGET_PROPERTIES ( IlmImf
   
 ##########################
 # IlmImfUtil library
-##########################
-ADD_SUBDIRECTORY ( IlmImfUtil )
-
-SET_TARGET_PROPERTIES ( IlmImfUtil
-  PROPERTIES
-  VERSION 22.0.0
-  SOVERSION 22
-  OUTPUT_NAME "IlmImfUtil${OPENEXR_LIBSUFFIX}"
-  )
-  
-##########################
-# Example Code
-##########################
-ADD_SUBDIRECTORY ( IlmImfExamples )
-
-  
-##########################
-# Tests
-##########################
-ADD_SUBDIRECTORY ( IlmImfTest )
-ADD_SUBDIRECTORY ( IlmImfUtilTest )
-ADD_SUBDIRECTORY ( IlmImfFuzzTest )
-
-
-##########################
-# Binaries / Utilities
-##########################
-ADD_SUBDIRECTORY ( exrheader )
-ADD_SUBDIRECTORY ( exrmaketiled )
-ADD_SUBDIRECTORY ( exrstdattr )
-ADD_SUBDIRECTORY ( exrmakepreview )
-ADD_SUBDIRECTORY ( exrenvmap )
-ADD_SUBDIRECTORY ( exrmultiview )
-ADD_SUBDIRECTORY ( exrmultipart )
-
-
+###########################
+#ADD_SUBDIRECTORY ( IlmImfUtil )
+#
+#SET_TARGET_PROPERTIES ( IlmImfUtil
+#  PROPERTIES
+#  VERSION 22.0.0
+#  SOVERSION 22
+#  OUTPUT_NAME "IlmImfUtil${OPENEXR_LIBSUFFIX}"
+#  )
+#  
+###########################
+## Example Code
+###########################
+#ADD_SUBDIRECTORY ( IlmImfExamples )
+#
+#  
+###########################
+## Tests
+###########################
+#ADD_SUBDIRECTORY ( IlmImfTest )
+#ADD_SUBDIRECTORY ( IlmImfUtilTest )
+#ADD_SUBDIRECTORY ( IlmImfFuzzTest )
+#
+#
+###########################
+## Binaries / Utilities
+###########################
+#ADD_SUBDIRECTORY ( exrheader )
+#ADD_SUBDIRECTORY ( exrmaketiled )
+#ADD_SUBDIRECTORY ( exrstdattr )
+#ADD_SUBDIRECTORY ( exrmakepreview )
+#ADD_SUBDIRECTORY ( exrenvmap )
+#ADD_SUBDIRECTORY ( exrmultiview )
+#ADD_SUBDIRECTORY ( exrmultipart )
+#
+#
 ##########################
 # Installation
 ##########################
