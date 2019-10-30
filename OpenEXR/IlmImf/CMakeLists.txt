@@ -58,14 +58,14 @@ if (NOT EXISTS "${CMAKE_CURRENT_BINARY_DIR}/dwaLookups.h")
 
   IF (WIN32)
     TARGET_LINK_LIBRARIES ( dwaLookups
-      IlmBase::Half_static
       IlmBase::IlmThread_static
-      IlmBase::Iex_static)
+      IlmBase::Iex_static
+      IlmBase::Half_static)
   ELSE()
     TARGET_LINK_LIBRARIES ( dwaLookups
-      IlmBase::Half${OPENEXR_TARGET_SUFFIX}
       IlmBase::IlmThread${OPENEXR_TARGET_SUFFIX}
       IlmBase::Iex${OPENEXR_TARGET_SUFFIX}
+      IlmBase::Half${OPENEXR_TARGET_SUFFIX}
       ${PTHREAD_LIB})
   ENDIF()
 
