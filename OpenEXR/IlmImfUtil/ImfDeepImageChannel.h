@@ -100,8 +100,8 @@ class IMFUTIL_EXPORT DeepImageChannel: public ImageChannel
 
     friend class DeepImageLevel;
 
-    IMFUTIL_EXPORT DeepImageChannel (DeepImageLevel &level, bool pLinear);
-    IMFUTIL_EXPORT virtual ~DeepImageChannel();
+    DeepImageChannel (DeepImageLevel &level, bool pLinear);
+    virtual ~DeepImageChannel();
 
     virtual void setSamplesToZero
                         (size_t i,
@@ -121,7 +121,7 @@ class IMFUTIL_EXPORT DeepImageChannel: public ImageChannel
 
     virtual void initializeSampleLists () = 0;
 
-    IMFUTIL_EXPORT virtual void resize ();
+    virtual void resize ();
 
     virtual void resetBasePointer () = 0;
 };
