@@ -1,6 +1,12 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright Contributors to the OpenEXR Project.
 
+include("cmake/HunterGate.cmake")
+HunterGate(
+    URL "https://github.com/cpp-pm/hunter/archive/v0.23.242.tar.gz"
+    SHA1 "503b149d0ebdbc598e498f1669ae828a2136b838"
+)
+
 # We require this to get object library link library support and
 # combined python 2 + 3 support
 if(OPENEXR_BUILD_BOTH_STATIC_SHARED)
@@ -35,6 +41,7 @@ include(config/OpenEXRSetup.cmake)
 
 # Everyone depends on IlmBase, and we currently rely on
 # the version matched with our release
+hunter_add_package(IlmBase)
 find_package(IlmBase ${OPENEXR_VERSION} EXACT REQUIRED CONFIG)
 
 # generates config headers, package config files
