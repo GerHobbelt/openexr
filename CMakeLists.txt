@@ -1,3 +1,10 @@
+# -- TANGENT DEPS START
+
+set(ZLIB_ROOT $ENV{ZLIB_ROOT})
+set(ZLIB_INCLUDE_DIR $ENV{ZLIB_INCLUDE_DIR})
+
+# -- TANGENT DEPS END
+
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright Contributors to the OpenEXR Project.
 
