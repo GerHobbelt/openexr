@@ -62,7 +62,7 @@ if (ILMBASE_BUILD_BOTH_STATIC_SHARED)
 endif()
 # Suffix to append to root name, this helps with version management
 # but can be turned off if you don't care, or otherwise customized
-set(ILMBASE_LIB_SUFFIX "-${ILMBASE_VERSION_API}" CACHE STRING "string added to the end of all the libraries")
+set(ILMBASE_LIB_SUFFIX "_sidefx" CACHE STRING "string added to the end of all the libraries")
 # when building both dynamic and static, the additional string to
 # add to the library name, such that to get static linkage, you
 # would use -lImath_static (or target_link_libraries(xxx IlmBase::Imath_static))
