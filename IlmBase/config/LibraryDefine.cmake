@@ -83,8 +83,14 @@ function(ILMBASE_DEFINE_LIBRARY libname)
       VERSION ${ILMBASE_LIB_VERSION}
     )
   endif()
+
+  set(ILMBASE_LIB_PREFIX)
+  if(WIN32 AND NOT BUILD_SHARED_LIBS)
+        set(ILMBASE_LIB_PREFIX "lib")
+  endif()
+
   set_target_properties(${libname} PROPERTIES
-      OUTPUT_NAME "${libname}${ILMBASE_LIB_SUFFIX}"
+      OUTPUT_NAME "${ILMBASE_LIB_PREFIX}${libname}${ILMBASE_LIB_SUFFIX}"
       RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
   )
   add_library(${PROJECT_NAME}::${libname} ALIAS ${libname})
@@ -134,7 +140,7 @@ function(ILMBASE_DEFINE_LIBRARY libname)
       POSITION_INDEPENDENT_CODE ON
       SOVERSION ${ILMBASE_SOVERSION}
       VERSION ${ILMBASE_LIB_VERSION}
-      OUTPUT_NAME "${libname}${ILMBASE_LIB_SUFFIX}${ILMBASE_STATIC_LIB_SUFFIX}"
+      OUTPUT_NAME "${ILMBASE_LIB_PREFIX}${libname}${ILMBASE_LIB_SUFFIX}${ILMBASE_STATIC_LIB_SUFFIX}"
     )
     add_library(${PROJECT_NAME}::${libname}_static ALIAS ${libname}_static)
 

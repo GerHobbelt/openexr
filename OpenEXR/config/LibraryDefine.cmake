@@ -77,8 +77,14 @@ function(OPENEXR_DEFINE_LIBRARY libname)
       VERSION ${OPENEXR_LIB_VERSION}
     )
   endif()
+
+  set(OPENEXR_LIB_PREFIX)
+  if(WIN32 AND NOT BUILD_SHARED_LIBS)
+    set(OPENEXR_LIB_PREFIX "lib")
+  endif()
+
   set_target_properties(${libname} PROPERTIES
-      OUTPUT_NAME "${libname}${OPENEXR_LIB_SUFFIX}"
+      OUTPUT_NAME "${OPENEXR_LIB_PREFIX}${libname}${OPENEXR_LIB_SUFFIX}"
       RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
   )
   add_library(${PROJECT_NAME}::${libname} ALIAS ${libname})
@@ -125,7 +131,7 @@ function(OPENEXR_DEFINE_LIBRARY libname)
     set_target_properties(${libname}_static PROPERTIES
       SOVERSION ${OPENEXR_SOVERSION}
       VERSION ${OPENEXR_LIB_VERSION}
-      OUTPUT_NAME "${libname}${OPENEXR_LIB_SUFFIX}${OPENEXR_STATIC_LIB_SUFFIX}"
+      OUTPUT_NAME "${OPENEXR_LIB_PREFIX}${libname}${OPENEXR_LIB_SUFFIX}${OPENEXR_STATIC_LIB_SUFFIX}"
     )
     add_library(${PROJECT_NAME}::${libname}_static ALIAS ${libname}_static)
 
