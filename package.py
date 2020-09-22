@@ -1,18 +1,26 @@
 name = 'openexr'
 
-version = '2.4.0+ta.1.0.0'
+version = '2.4.0+ta.1.0.1'
 
 authors = [
     'benjamin.skinner',
 ]
 
 variants = [
-    ['platform-windows', 'arch-x64', 'os-windows-10', 'visual_studio-2017.15.9'],
+    ['platform-windows', 'arch-x64', 'os-windows-10'],
 ]
 
 build_requires = [
     'zlib',
 ]
+
+@early()
+def private_build_requires():
+    import sys
+    if 'win' in str(sys.platform):
+        return ['visual_studio']
+    else:
+        return ['gcc-7']
 
 build_system = "cmake"
 
