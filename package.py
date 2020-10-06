@@ -1,6 +1,6 @@
 name = 'openexr'
 
-version = '2.4.0+ta.1.0.1'
+version = '2.4.0+ta.1.0.2'
 
 authors = [
     'benjamin.skinner',
@@ -31,6 +31,7 @@ def commands():
     env.OPENEXR_VERSION.set(split_versions[0])
     env.OPENEXR_PACKAGE_VERSION.set(split_versions[1])
 
+    env.OPENEXR_ROOT.set( "{root}" )
     env.OPENEXR_LIB_DIR.set( "{root}/lib" )
     env.OPENEXR_INCLUDE_DIR.set( "{root}/include" )
 
