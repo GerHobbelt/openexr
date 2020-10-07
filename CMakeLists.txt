@@ -1,10 +1,3 @@
-# -- TANGENT DEPS START
-
-set(ZLIB_ROOT $ENV{ZLIB_ROOT})
-set(ZLIB_INCLUDE_DIR $ENV{ZLIB_INCLUDE_DIR})
-
-# -- TANGENT DEPS END
-
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright Contributors to the OpenEXR Project.
 
@@ -37,6 +30,8 @@ macro(find_package)
   endif()
 endmacro()
 
+# ====== Tangent Rez Deps
+include(${CMAKE_CURRENT_SOURCE_DIR}/rez_deps.cmake)
 
 # If you want to use ctest to configure, build and
 # upload the results, cmake has builtin support for
