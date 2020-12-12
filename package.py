@@ -8,6 +8,7 @@ authors = [
 
 variants = [
     ['platform-windows', 'arch-x64', 'os-windows-10'],
+    ['platform-linux', 'arch-x86_64', 'os-centos-7'],
 ]
 
 build_requires = [
@@ -20,7 +21,7 @@ def private_build_requires():
     if 'win' in str(sys.platform):
         return ['visual_studio']
     else:
-        return ['gcc-7']
+        return ['gcc-6']
 
 build_system = "cmake"
 
