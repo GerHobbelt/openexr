@@ -58,7 +58,7 @@ option(OPENEXR_ENABLE_LARGE_STACK "Enables code to take advantage of large stack
 # Whether to build & install the various command line utility programs
 option(OPENEXR_BUILD_TOOLS "Enables building of utility programs" ON)
 
-# This is a variable here for use in controlling where include files are 
+# This is a variable here for use in controlling where include files are
 # installed. Care must be taken when changing this, as many things
 # probably assume this is OpenEXR
 set(OPENEXR_OUTPUT_SUBDIR OpenEXR CACHE STRING "Destination sub-folder of the include path for install")
@@ -160,7 +160,8 @@ endif()
 option(OPENEXR_FORCE_INTERNAL_ZLIB "Force using an internal zlib" OFF)
 if (NOT OPENEXR_FORCE_INTERNAL_ZLIB)
   if(NOT TARGET ZLIB::ZLIB)
-    find_package(ZLIB QUIET)
+    hunter_add_package(ZLIB)
+    find_package(ZLIB CONFIG REQUIRED)
   endif()
 endif()
 if(OPENEXR_FORCE_INTERNAL_ZLIB OR NOT TARGET ZLIB::ZLIB)
@@ -256,7 +257,8 @@ set(IMATH_TAG "v3.1.5" CACHE STRING
 if(NOT OPENEXR_FORCE_INTERNAL_IMATH)
   #TODO: ^^ Release should not clone from master, this is a place holder
   set(CMAKE_IGNORE_PATH "${CMAKE_CURRENT_BINARY_DIR}/_deps/imath-src/config;${CMAKE_CURRENT_BINARY_DIR}/_deps/imath-build/config")
-  find_package(Imath 3.1)
+  hunter_add_package(Imath)
+  find_package(Imath CONFIG REQUIRED)
   set(CMAKE_IGNORE_PATH)
 endif()
 
@@ -266,13 +268,14 @@ if(NOT TARGET Imath::Imath AND NOT Imath_FOUND)
   else()
     message(STATUS "Imath was not found, installing from ${IMATH_REPO} (${IMATH_TAG})")
   endif()
+
   include(FetchContent)
   FetchContent_Declare(Imath
     GIT_REPOSITORY ${IMATH_REPO}
     GIT_TAG ${IMATH_TAG}
     GIT_SHALLOW ON
       )
-    
+
   FetchContent_GetProperties(Imath)
   if(NOT Imath_POPULATED)
     FetchContent_Populate(Imath)
