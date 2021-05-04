@@ -58,7 +58,7 @@ option(OPENEXR_ENABLE_LARGE_STACK "Enables code to take advantage of large stack
 # Whether to build & install the various command line utility programs
 option(OPENEXR_BUILD_UTILS "Enables building of utility programs" ON)
 
-# This is a variable here for use in controlling where include files are 
+# This is a variable here for use in controlling where include files are
 # installed. Care must be taken when changing this, as many things
 # probably assume this is OpenEXR
 set(OPENEXR_OUTPUT_SUBDIR OpenEXR CACHE STRING "Destination sub-folder of the include path for install")
@@ -162,7 +162,8 @@ endif()
 option(OPENEXR_FORCE_INTERNAL_ZLIB "Force using an internal zlib" OFF)
 if (NOT OPENEXR_FORCE_INTERNAL_ZLIB)
   if(NOT TARGET ZLIB::ZLIB)
-    find_package(ZLIB QUIET)
+    hunter_add_package(ZLIB)
+    find_package(ZLIB CONFIG REQUIRED)
   endif()
 endif()
 if(OPENEXR_FORCE_INTERNAL_ZLIB OR NOT TARGET ZLIB::ZLIB)
@@ -255,7 +256,8 @@ set(IMATH_REPO "https://github.com/AcademySoftwareFoundation/Imath.git" CACHE ST
 set(IMATH_TAG "v3.0.1" CACHE STRING
     "Tag for auto-build of Imath (branch, tag, or SHA)")
 set(CMAKE_IGNORE_PATH "${CMAKE_CURRENT_BINARY_DIR}/_deps/imath-src/config;${CMAKE_CURRENT_BINARY_DIR}/_deps/imath-build/config")
-find_package(Imath QUIET)
+hunter_add_package(Imath)
+find_package(Imath CONFIG REQUIRED)
 set(CMAKE_IGNORE_PATH)
 
 if(NOT TARGET Imath::Imath AND NOT Imath_FOUND)
@@ -263,14 +265,14 @@ if(NOT TARGET Imath::Imath AND NOT Imath_FOUND)
     message(FATAL_ERROR "CMake 3.11 or newer is required for FetchContent, you must manually install Imath if you are using an earlier version of CMake")
   endif()
   message(STATUS "Imath was not found, installing from ${IMATH_REPO} (${IMATH_TAG})")
-  
+
   include(FetchContent)
   FetchContent_Declare(Imath
     GIT_REPOSITORY ${IMATH_REPO}
     GIT_TAG ${IMATH_TAG}
     GIT_SHALLOW ON
       )
-    
+
   FetchContent_GetProperties(Imath)
   if(NOT Imath_POPULATED)
     FetchContent_Populate(Imath)
