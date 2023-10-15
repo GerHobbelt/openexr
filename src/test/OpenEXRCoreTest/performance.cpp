@@ -44,9 +44,9 @@ public:
     {}
     void execute () override
     {
-        exr_chunk_block_info_t cinfo = { 0 };
-        exr_decode_pipeline_t  chunk;
-        exr_result_t rv = exr_read_scanline_block_info (_f, 0, _y, &cinfo);
+        exr_chunk_info_t      cinfo = { 0 };
+        exr_decode_pipeline_t chunk;
+        exr_result_t rv = exr_read_scanline_chunk_info (_f, 0, _y, &cinfo);
         if (rv == EXR_ERR_SUCCESS)
             rv = exr_decoding_initialize (_f, 0, &cinfo, &chunk);
         if (rv == EXR_ERR_SUCCESS)
@@ -89,8 +89,8 @@ read_pixels_raw (exr_context_t f)
     exr_attr_box2i_t dw;
     if (EXR_ERR_SUCCESS != exr_get_data_window (f, 0, &dw))
         throw std::logic_error ("Unable to query data window from part");
-    int64_t w = (int64_t) dw.x_max - (int64_t) dw.x_min + (int64_t) 1;
-    int64_t h = (int64_t) dw.x_max - (int64_t) dw.x_min + (int64_t) 1;
+    int64_t w = (int64_t) dw.max.x - (int64_t) dw.min.x + (int64_t) 1;
+    int64_t h = (int64_t) dw.max.x - (int64_t) dw.min.x + (int64_t) 1;
 
     if (w <= 0) return ret;
     if (h <= 0) return ret;
@@ -135,7 +135,7 @@ read_pixels_raw (exr_context_t f)
         TaskGroup   taskgroup;
         ThreadPool& tp = ThreadPool::globalThreadPool ();
 
-        for (int y = dw.y_min; y <= dw.y_max;)
+        for (int y = dw.min.y; y <= dw.max.y;)
         {
             tp.addTask (new CoreReadTask (&taskgroup, f, y, imgptr));
             imgptr += sizePerChunk;
@@ -143,15 +143,15 @@ read_pixels_raw (exr_context_t f)
             ret += linesread * w;
         }
 #else
-        exr_chunk_block_info_t cinfo = { 0 };
-        exr_decode_pipeline_t  chunk = { 0 };
-        for (int y = dw.y_min; y <= dw.y_max;)
+        exr_chunk_info_t      cinfo = { 0 };
+        exr_decode_pipeline_t chunk = { 0 };
+        for (int y = dw.min.y; y <= dw.max.y;)
         {
-            exr_result_t rv = exr_read_scanline_block_info (f, 0, y, &cinfo);
+            exr_result_t rv = exr_read_scanline_chunk_info (f, 0, y, &cinfo);
             if (rv != EXR_ERR_SUCCESS)
                 throw std::runtime_error ("unable to init scanline block info");
 
-            if (y == dw.y_min)
+            if (y == dw.min.y)
                 rv = exr_initialize_decoding (f, 0, &cinfo, &chunk);
             else
                 rv = exr_decoding_update (f, 0, &cinfo, &chunk);
@@ -198,7 +198,7 @@ read_pixels_raw (exr_context_t f)
         uint8_t *imgptr = rawBuf.data();
 
         // random or increasing
-        for ( int y = dw.y_min; y <= dw.y_max; )
+        for ( int y = dw.min.y; y <= dw.max.y; )
         {
             exr_chunk_info_t chunk = {0};
             if ( exr_compute_chunk_for_scanline( f, 0, y, &chunk ) )

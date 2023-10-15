@@ -106,24 +106,6 @@ typedef enum
  * structs to be tightly packed */
 #pragma pack(push, 1)
 
-/** @brief struct to hold an integer box / region definition */
-typedef struct
-{
-    int32_t x_min;
-    int32_t y_min;
-    int32_t x_max;
-    int32_t y_max;
-} exr_attr_box2i_t;
-
-/** @brief struct to hold a floating-point box / region definition */
-typedef struct
-{
-    float x_min;
-    float y_min;
-    float x_max;
-    float y_max;
-} exr_attr_box2f_t;
-
 /** @brief struct to hold color chromaticities to interpret the tristimulus color values in the image data */
 typedef struct
 {
@@ -265,6 +247,20 @@ typedef struct
     };
 } exr_attr_v3d_t;
 
+/** @brief struct to hold an integer box / region definition */
+typedef struct
+{
+    exr_attr_v2i_t min;
+    exr_attr_v2i_t max;
+} exr_attr_box2i_t;
+
+/** @brief struct to hold a floating-point box / region definition */
+typedef struct
+{
+    exr_attr_v2f_t min;
+    exr_attr_v2f_t max;
+} exr_attr_box2f_t;
+
 /** @brief Struct holding base tiledesc attribute type defined in spec
  *
  * NB: this is in a tightly packed area so it can be read directly, be
@@ -340,7 +336,7 @@ typedef struct
     exr_attr_string_t name;
     /** Data representation for these pixels: uint, half, float */
     exr_pixel_type_t pixel_type;
-    /** Possible values are 0 and 1 per docs @sa exr_perceptual_treatment_t */
+    /** Possible values are 0 and 1 per docs \ref exr_perceptual_treatment_t */
     uint8_t p_linear;
     uint8_t reserved[3];
     int32_t x_sampling;
@@ -464,7 +460,7 @@ typedef enum
  * for those as necessary with the pointers pointing to static strings
  * (not to be freed). Finally, small values are optimized for.
  */
-typedef struct _exr_attribute_t
+typedef struct 
 {
     /** name of the attribute */
     const char* name;
@@ -487,7 +483,7 @@ typedef struct _exr_attribute_t
 	 * storing the value you want, with the exception of the pod types
 	 * which are just put in place (i.e. small value optimization)
 	 *
-	 * The attribute type @sa type should directly correlate to one of
+	 * The attribute type \ref type should directly correlate to one of
 	 * these entries
 	 */
     union

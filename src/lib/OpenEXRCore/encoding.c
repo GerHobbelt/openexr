@@ -81,13 +81,13 @@ default_write_chunk (exr_encode_pipeline_t* encode)
 
     if (!encode) return EXR_ERR_INVALID_ARGUMENT;
 
-    switch (encode->chunk_block.type)
+    switch (encode->chunk.type)
     {
         case EXR_STORAGE_SCANLINE:
             rv = exr_write_scanline_chunk (
                 EXR_CONST_CAST (exr_context_t, encode->context),
                 encode->part_index,
-                encode->chunk_block.start_y,
+                encode->chunk.start_y,
                 encode->compressed_buffer,
                 encode->compressed_bytes);
             break;
@@ -95,10 +95,10 @@ default_write_chunk (exr_encode_pipeline_t* encode)
             rv = exr_write_tile_chunk (
                 EXR_CONST_CAST (exr_context_t, encode->context),
                 encode->part_index,
-                encode->chunk_block.start_x,
-                encode->chunk_block.start_y,
-                encode->chunk_block.level_x,
-                encode->chunk_block.level_y,
+                encode->chunk.start_x,
+                encode->chunk.start_y,
+                encode->chunk.level_x,
+                encode->chunk.level_y,
                 encode->compressed_buffer,
                 encode->compressed_bytes);
             break;
@@ -109,7 +109,7 @@ default_write_chunk (exr_encode_pipeline_t* encode)
             rv = exr_write_deep_scanline_chunk (
                 EXR_CONST_CAST (exr_context_t, encode->context),
                 encode->part_index,
-                encode->chunk_block.start_y,
+                encode->chunk.start_y,
                 encode->compressed_buffer,
                 encode->compressed_bytes,
                 encode->packed_bytes,
@@ -123,10 +123,10 @@ default_write_chunk (exr_encode_pipeline_t* encode)
             rv = exr_write_deep_tile_chunk (
                 EXR_CONST_CAST (exr_context_t, encode->context),
                 encode->part_index,
-                encode->chunk_block.start_x,
-                encode->chunk_block.start_y,
-                encode->chunk_block.level_x,
-                encode->chunk_block.level_y,
+                encode->chunk.start_x,
+                encode->chunk.start_y,
+                encode->chunk.level_x,
+                encode->chunk.level_y,
                 encode->compressed_buffer,
                 encode->compressed_bytes,
                 encode->packed_bytes,
@@ -145,7 +145,7 @@ exr_result_t
 exr_encoding_initialize (
     exr_const_context_t           ctxt,
     int                           part_index,
-    const exr_chunk_block_info_t* cinfo,
+    const exr_chunk_info_t* cinfo,
     exr_encode_pipeline_t*        encode)
 {
     exr_result_t          rv;
@@ -179,7 +179,7 @@ exr_encoding_initialize (
     {
         encode->part_index  = part_index;
         encode->context     = ctxt;
-        encode->chunk_block = *cinfo;
+        encode->chunk = *cinfo;
     }
     return EXR_UNLOCK_WRITE_AND_RETURN_PCTXT (rv);
 }
@@ -222,7 +222,7 @@ exr_result_t
 exr_encoding_update (
     exr_const_context_t           ctxt,
     int                           part_index,
-    const exr_chunk_block_info_t* cinfo,
+    const exr_chunk_info_t* cinfo,
     exr_encode_pipeline_t*        encode)
 {
     exr_result_t rv;
@@ -248,7 +248,7 @@ exr_encoding_update (
     rv = internal_coding_update_channel_info (
         encode->channels, encode->channel_count, cinfo, pctxt, part);
 
-    if (rv == EXR_ERR_SUCCESS) encode->chunk_block = *cinfo;
+    if (rv == EXR_ERR_SUCCESS) encode->chunk = *cinfo;
     return EXR_UNLOCK_WRITE_AND_RETURN_PCTXT (rv);
 }
 
@@ -270,6 +270,21 @@ exr_encoding_run (
             pctxt,
             EXR_ERR_INVALID_ARGUMENT,
             "Invalid request for encoding update from different context / part"));
+
+    if (part->storage_mode == EXR_STORAGE_DEEP_SCANLINE ||
+        part->storage_mode == EXR_STORAGE_DEEP_TILED)
+    {
+        if (encode->sample_count_table == NULL ||
+            encode->sample_count_alloc_size !=
+                (((size_t) encode->chunk.width) *
+                 ((size_t) encode->chunk.height) * sizeof (int32_t)))
+        {
+            return EXR_UNLOCK_WRITE_AND_RETURN_PCTXT (pctxt->report_error (
+                pctxt,
+                EXR_ERR_INVALID_ARGUMENT,
+                "Invalid / missing sample count table for deep data"));
+        }
+    }
 
     for (int c = 0; c < encode->channel_count; ++c)
     {
@@ -345,6 +360,15 @@ exr_encoding_run (
     }
     EXR_UNLOCK_WRITE (pctxt);
 
+    if ((part->storage_mode == EXR_STORAGE_DEEP_SCANLINE ||
+         part->storage_mode == EXR_STORAGE_DEEP_TILED) &&
+        encode->sample_count_table != NULL)
+    {
+        priv_from_native32 (
+            encode->sample_count_table,
+            encode->chunk.width * encode->chunk.height);
+    }
+
     if (rv == EXR_ERR_SUCCESS)
     {
         if (encode->compress_fn && encode->packed_bytes > 0)
@@ -355,13 +379,25 @@ exr_encoding_run (
         {
             internal_encode_free_buffer (
                 encode,
-                EXR_TRANSCODE_BUFFER_UNPACKED,
+                EXR_TRANSCODE_BUFFER_COMPRESSED,
                 &(encode->compressed_buffer),
                 &(encode->compressed_alloc_size));
+
+            internal_encode_free_buffer (
+                encode,
+                EXR_TRANSCODE_BUFFER_PACKED_SAMPLES,
+                &(encode->packed_sample_count_table),
+                &(encode->packed_sample_count_alloc_size));
 
             encode->compressed_buffer     = encode->packed_buffer;
             encode->compressed_bytes      = encode->packed_bytes;
             encode->compressed_alloc_size = 0;
+
+            encode->packed_sample_count_table      = encode->sample_count_table;
+            encode->packed_sample_count_alloc_size = 0;
+            encode->packed_sample_count_bytes =
+                (((size_t) encode->chunk.width) *
+                 ((size_t) encode->chunk.height) * sizeof (int32_t));
         }
     }
 
@@ -370,6 +406,15 @@ exr_encoding_run (
 
     if (rv == EXR_ERR_SUCCESS && encode->write_fn)
         rv = encode->write_fn (encode);
+
+    if ((part->storage_mode == EXR_STORAGE_DEEP_SCANLINE ||
+         part->storage_mode == EXR_STORAGE_DEEP_TILED) &&
+        encode->sample_count_table != NULL)
+    {
+        priv_to_native32 (
+            encode->sample_count_table,
+            encode->chunk.width * encode->chunk.height);
+    }
 
     return rv;
 }

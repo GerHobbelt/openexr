@@ -44,19 +44,21 @@ typedef enum
     EXR_ERR_MISSING_REQ_ATTR,
     EXR_ERR_INVALID_ATTR,
     EXR_ERR_NO_ATTR_BY_NAME,
-    EXR_ERR_BAD_CHUNK_DATA,
     EXR_ERR_ATTR_TYPE_MISMATCH,
     EXR_ERR_ATTR_SIZE_MISMATCH,
     EXR_ERR_SCAN_TILE_MIXEDAPI,
     EXR_ERR_TILE_SCAN_MIXEDAPI,
     EXR_ERR_MODIFY_SIZE_CHANGE,
     EXR_ERR_ALREADY_WROTE_ATTRS,
-    EXR_ERR_PART_NOT_READY,
-    EXR_ERR_CHUNK_NOT_READY,
+    EXR_ERR_BAD_CHUNK_LEADER,
+    EXR_ERR_CORRUPT_CHUNK,
+    EXR_ERR_INCORRECT_PART,
+    EXR_ERR_INCORRECT_CHUNK,
     EXR_ERR_USE_SCAN_DEEP_WRITE,
     EXR_ERR_USE_TILE_DEEP_WRITE,
     EXR_ERR_USE_SCAN_NONDEEP_WRITE,
     EXR_ERR_USE_TILE_NONDEEP_WRITE,
+    EXR_ERR_INVALID_SAMPLE_DATA,
     EXR_ERR_FEATURE_NOT_IMPLEMENTED,
     EXR_ERR_UNKNOWN
 } exr_error_code_t;
@@ -64,15 +66,15 @@ typedef enum
 /** Return type for all functions */
 typedef int32_t exr_result_t;
 
-/** @brief Returns a static string corresponding to the specified error code.
+/** @brief Return a static string corresponding to the specified error code
  *
- * The string should not be freed (it is compiled into the binary)
+ * The string should not be freed (it is compiled into the binary).
  */
 EXR_EXPORT const char* exr_get_default_error_message (exr_result_t code);
 
-/** @brief Returns a static string corresponding to the specified error code.
+/** @brief Return a static string corresponding to the specified error code
  *
- * The string should not be freed (it is compiled into the binary)
+ * The string should not be freed (it is compiled into the binary).
  */
 EXR_EXPORT const char* exr_get_error_code_as_string (exr_result_t code);
 

@@ -608,18 +608,18 @@ fill_pointers (
 static void
 doEncodeScan (exr_context_t f, pixels& p, int xs, int ys)
 {
-    int32_t                scansperchunk = 0;
-    int                    y, starty, endy;
-    exr_chunk_block_info_t cinfo;
-    exr_encode_pipeline_t  encoder;
-    bool                   first = true;
+    int32_t               scansperchunk = 0;
+    int                   y, starty, endy;
+    exr_chunk_info_t      cinfo;
+    exr_encode_pipeline_t encoder;
+    bool                  first = true;
 
     EXRCORE_TEST_RVAL (exr_get_scanlines_per_chunk (f, 0, &scansperchunk));
     starty = IMG_DATA_Y * ys;
     endy   = starty + IMG_HEIGHT * ys;
     for (y = starty; y < endy; y += scansperchunk)
     {
-        EXRCORE_TEST_RVAL (exr_write_scanline_block_info (f, 0, y, &cinfo));
+        EXRCORE_TEST_RVAL (exr_write_scanline_chunk_info (f, 0, y, &cinfo));
         if (first)
         {
             EXRCORE_TEST_RVAL (
@@ -675,14 +675,14 @@ doEncodeScan (exr_context_t f, pixels& p, int xs, int ys)
 static void
 doEncodeTile (exr_context_t f, pixels& p, int xs, int ys)
 {
-    int32_t                tlevx, tlevy;
-    int32_t                tilew, tileh;
-    int32_t                tilex, tiley;
-    int                    y, endy;
-    int                    x, endx;
-    exr_chunk_block_info_t cinfo;
-    exr_encode_pipeline_t  encoder;
-    bool                   first = true;
+    int32_t               tlevx, tlevy;
+    int32_t               tilew, tileh;
+    int32_t               tilex, tiley;
+    int                   y, endy;
+    int                   x, endx;
+    exr_chunk_info_t      cinfo;
+    exr_encode_pipeline_t encoder;
+    bool                  first = true;
 
     EXRCORE_TEST (xs == 1 && ys == 1);
     EXRCORE_TEST_RVAL (exr_get_tile_levels (f, 0, &tlevx, &tlevy));
@@ -703,7 +703,7 @@ doEncodeTile (exr_context_t f, pixels& p, int xs, int ys)
         for (; x < endx; x += tilew, ++tilex)
         {
             EXRCORE_TEST_RVAL (
-                exr_write_tile_block_info (f, 0, tilex, tiley, 0, 0, &cinfo));
+                exr_write_tile_chunk_info (f, 0, tilex, tiley, 0, 0, &cinfo));
             if (first)
             {
                 EXRCORE_TEST_RVAL (
@@ -752,17 +752,17 @@ doEncodeTile (exr_context_t f, pixels& p, int xs, int ys)
 static void
 doDecodeScan (exr_context_t f, pixels& p, int xs, int ys)
 {
-    exr_chunk_block_info_t cinfo;
-    exr_decode_pipeline_t  decoder;
-    int32_t                scansperchunk;
-    exr_attr_box2i_t       dw;
-    bool                   first = true;
+    exr_chunk_info_t      cinfo;
+    exr_decode_pipeline_t decoder;
+    int32_t               scansperchunk;
+    exr_attr_box2i_t      dw;
+    bool                  first = true;
 
     EXRCORE_TEST_RVAL (exr_get_data_window (f, 0, &dw));
-    EXRCORE_TEST (dw.x_min == IMG_DATA_X * xs);
-    EXRCORE_TEST (dw.x_max == IMG_DATA_X * xs + IMG_WIDTH * xs - 1);
-    EXRCORE_TEST (dw.y_min == IMG_DATA_Y * ys);
-    EXRCORE_TEST (dw.y_max == IMG_DATA_Y * ys + IMG_HEIGHT * ys - 1);
+    EXRCORE_TEST (dw.min.x == IMG_DATA_X * xs);
+    EXRCORE_TEST (dw.max.x == IMG_DATA_X * xs + IMG_WIDTH * xs - 1);
+    EXRCORE_TEST (dw.min.y == IMG_DATA_Y * ys);
+    EXRCORE_TEST (dw.max.y == IMG_DATA_Y * ys + IMG_HEIGHT * ys - 1);
 
     EXRCORE_TEST_RVAL (exr_get_scanlines_per_chunk (f, 0, &scansperchunk));
 
@@ -771,9 +771,9 @@ doDecodeScan (exr_context_t f, pixels& p, int xs, int ys)
     EXRCORE_TEST (stortype == EXR_STORAGE_SCANLINE);
 
     //const uint8_t* tmp;
-    for (int y = dw.y_min; y <= dw.y_max; y += scansperchunk)
+    for (int y = dw.min.y; y <= dw.max.y; y += scansperchunk)
     {
-        EXRCORE_TEST_RVAL (exr_read_scanline_block_info (f, 0, y, &cinfo));
+        EXRCORE_TEST_RVAL (exr_read_scanline_chunk_info (f, 0, y, &cinfo));
         if (first)
         {
             EXRCORE_TEST_RVAL (
@@ -783,7 +783,7 @@ doDecodeScan (exr_context_t f, pixels& p, int xs, int ys)
         {
             EXRCORE_TEST_RVAL (exr_decoding_update (f, 0, &cinfo, &decoder));
         }
-        int32_t idxoffset = ((y - dw.y_min) / ys) * p._stride_x;
+        int32_t idxoffset = ((y - dw.min.y) / ys) * p._stride_x;
 
         for (int c = 0; c < decoder.channel_count; ++c)
         {
@@ -828,14 +828,14 @@ doDecodeScan (exr_context_t f, pixels& p, int xs, int ys)
 static void
 doDecodeTile (exr_context_t f, pixels& p, int xs, int ys)
 {
-    int32_t                tlevx, tlevy;
-    int32_t                tilew, tileh;
-    int32_t                tilex, tiley;
-    int                    y, endy;
-    int                    x, endx;
-    exr_chunk_block_info_t cinfo;
-    exr_decode_pipeline_t  decoder;
-    bool                   first = true;
+    int32_t               tlevx, tlevy;
+    int32_t               tilew, tileh;
+    int32_t               tilex, tiley;
+    int                   y, endy;
+    int                   x, endx;
+    exr_chunk_info_t      cinfo;
+    exr_decode_pipeline_t decoder;
+    bool                  first = true;
 
     EXRCORE_TEST (xs == 1 && ys == 1);
     EXRCORE_TEST_RVAL (exr_get_tile_levels (f, 0, &tlevx, &tlevy));
@@ -856,7 +856,7 @@ doDecodeTile (exr_context_t f, pixels& p, int xs, int ys)
         for (; x < endx; x += tilew, ++tilex)
         {
             EXRCORE_TEST_RVAL (
-                exr_read_tile_block_info (f, 0, tilex, tiley, 0, 0, &cinfo));
+                exr_read_tile_chunk_info (f, 0, tilex, tiley, 0, 0, &cinfo));
             if (first)
             {
                 EXRCORE_TEST_RVAL (
@@ -1131,10 +1131,10 @@ doWriteRead (
     exr_context_initializer_t cinit = EXR_DEFAULT_CONTEXT_INITIALIZER;
     exr_attr_box2i_t          dataW;
 
-    dataW.x_min = dwx;
-    dataW.y_min = dwy;
-    dataW.x_max = dwx + fw - 1;
-    dataW.y_max = dwy + fh - 1;
+    dataW.min.x = dwx;
+    dataW.min.y = dwy;
+    dataW.max.x = dwx + fw - 1;
+    dataW.max.y = dwy + fh - 1;
 
     std::cout << "  " << pattern << " tiled: " << (tiled ? "yes" : "no")
               << " sampling " << xs << ", " << ys << " comp " << (int) comp
@@ -1385,6 +1385,40 @@ testHUF (const std::string& tempdir)
     }
 
     p.fillPattern1 ();
+    EXRCORE_TEST_RVAL (internal_huf_compress (
+        &ebytes,
+        encoded.data (),
+        encoded.size (),
+        p.h.data (),
+        IMG_WIDTH,
+        hspare.data (),
+        esize));
+    cppebytes = hufCompress (p.h.data (), IMG_WIDTH, (char*) (&cppencoded[0]));
+    EXRCORE_TEST (ebytes == cppebytes);
+    for (size_t i = 0; i < ebytes; ++i)
+    {
+        if (encoded[i] != cppencoded[i])
+        {
+            std::cerr << "Error: byte " << i << " differs between new (0x"
+                      << std::hex << (int) encoded[i] << std::dec
+                      << ") and old (0x" << std::hex << (int) cppencoded[i]
+                      << std::dec << ")" << std::endl;
+            EXRCORE_TEST (encoded[i] == cppencoded[i]);
+        }
+    }
+    EXRCORE_TEST_RVAL (internal_huf_decompress (
+        encoded.data (),
+        ebytes,
+        decode.h.data (),
+        IMG_WIDTH,
+        hspare.data (),
+        dsize));
+    for (size_t i = 0; i < IMG_WIDTH; ++i)
+    {
+        EXRCORE_TEST (decode.h[i] == p.h[i]);
+    }
+
+    p.fillRandom ();
     EXRCORE_TEST_RVAL (internal_huf_compress (
         &ebytes,
         encoded.data (),

@@ -4,9 +4,8 @@
 load("//:bazel/third_party/generate_header.bzl", "generate_header")
 
 config_setting(
-    name = "windows_x86_64",
-    values = {"cpu": "x64_windows"},
-    visibility = ["//visibility:public"],
+    name = "windows",
+    constraint_values = ["@platforms//os:windows"],
 )
 
 generate_header(
@@ -94,6 +93,10 @@ cc_library(
         "src/lib/Iex/IexNamespace.h",
         "src/lib/Iex/IexThrowErrnoExc.h",
     ],
+    features = select({
+        ":windows": ["windows_export_all_symbols"],
+        "//conditions:default": [],
+    }),
     includes = ["src/lib/Iex"],
     deps = [
         ":IexConfig.h",
@@ -122,6 +125,10 @@ cc_library(
         "src/lib/IlmThread/IlmThreadPool.h",
         "src/lib/IlmThread/IlmThreadSemaphore.h",
     ],
+    features = select({
+        ":windows": ["windows_export_all_symbols"],
+        "//conditions:default": [],
+    }),
     includes = ["src/lib/IlmThread"],
     deps = [
         ":Iex",
@@ -341,17 +348,21 @@ cc_library(
         "src/lib/OpenEXR/ImfZipCompressor.h",
     ],
     copts = select({
-        ":windows_x86_64": [],
+        ":windows": [],
         "//conditions:default": [
             "-Wno-error",
         ],
     }),
+    features = select({
+        ":windows": ["windows_export_all_symbols"],
+        "//conditions:default": [],
+    }),
     includes = ["src/lib/OpenEXR"],
     linkopts =
         select({
-            ":windows_x86_64": [],
+            ":windows": [],
             "//conditions:default": [
-                "-lpthread",
+                "-pthread",
             ],
         }),
     visibility = ["//visibility:public"],
@@ -363,7 +374,7 @@ cc_library(
         ":OpenEXRConfig.h",
         ":OpenEXRConfigInternal.h",
         "@Imath",
-        "@zlib",
+        "@net_zlib_zlib//:zlib",
     ],
 )
 
@@ -378,5 +389,48 @@ cc_test(
     tags = ["manual"],  # This test is not build and executed in the CI
     deps = [
         ":Iex",
+    ],
+)
+
+cc_binary(
+    name = "exr2aces",
+    srcs = ["src/bin/exr2aces/main.cpp"],
+    deps = [
+        ":OpenEXR",
+    ],
+)
+
+cc_binary(
+    name = "exrheader",
+    srcs = ["src/bin/exrheader/main.cpp"],
+    deps = [
+        ":OpenEXR",
+    ],
+)
+
+cc_binary(
+    name = "exrenvmap",
+    srcs = [
+        "src/bin/exrenvmap/EnvmapImage.cpp",
+        "src/bin/exrenvmap/blurImage.cpp",
+        "src/bin/exrenvmap/main.cpp",
+        "src/bin/exrenvmap/makeCubeMap.cpp",
+        "src/bin/exrenvmap/makeLatLongMap.cpp",
+        "src/bin/exrenvmap/readInputImage.cpp",
+        "src/bin/exrenvmap/resizeImage.cpp",
+    ] + glob(["src/bin/exrenvmap/*.h"]),
+    includes = [
+        "src/bin/exrenvmap",
+    ],
+    deps = [
+        ":OpenEXR",
+    ],
+)
+
+cc_binary(
+    name = "exrstdattr",
+    srcs = ["src/bin/exrstdattr/main.cpp"],
+    deps = [
+        ":OpenEXR",
     ],
 )

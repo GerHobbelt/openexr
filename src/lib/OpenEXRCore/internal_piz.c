@@ -416,7 +416,7 @@ internal_exr_apply_piz (exr_encode_pipeline_t* encode)
     size_t         hufSpareBytes = internal_exr_huf_compress_spare_bytes ();
     uint16_t       minNonZero, maxNonZero, maxValue;
     uint64_t       packedbytes = encode->packed_bytes;
-    uint64_t       ndata = packedbytes / 2;
+    uint64_t       ndata       = packedbytes / 2;
     uint16_t*      wavbuf;
 
     rv = internal_encode_alloc_buffer (
@@ -441,9 +441,9 @@ internal_exr_apply_piz (exr_encode_pipeline_t* encode)
     lut      = (uint16_t*) (bitmap + BITMAP_SIZE);
 
     packed = encode->packed_buffer;
-    for (int y = 0; y < encode->chunk_block.height; ++y)
+    for (int y = 0; y < encode->chunk.height; ++y)
     {
-        int cury = y + encode->chunk_block.start_y;
+        int cury = y + encode->chunk.start_y;
 
         scratch = encode->scratch_buffer_1;
         for (int c = 0; c < encode->channel_count; ++c)
@@ -480,11 +480,7 @@ internal_exr_apply_piz (exr_encode_pipeline_t* encode)
     }
 
     bitmapFromData (
-        encode->scratch_buffer_1,
-        ndata,
-        bitmap,
-        &minNonZero,
-        &maxNonZero);
+        encode->scratch_buffer_1, ndata, bitmap, &minNonZero, &maxNonZero);
 
     maxValue = forwardLutFromBitmap (bitmap, lut);
 
@@ -540,10 +536,7 @@ internal_exr_apply_piz (exr_encode_pipeline_t* encode)
     }
     else
     {
-        memcpy (
-            encode->compressed_buffer,
-            encode->packed_buffer,
-            packedbytes);
+        memcpy (encode->compressed_buffer, encode->packed_buffer, packedbytes);
         nOut = packedbytes;
     }
     encode->compressed_bytes = nOut;
@@ -565,7 +558,7 @@ internal_exr_undo_piz (
     uint8_t *      scratch, *tmp;
     const uint8_t* packed;
     int            nx, ny, wcount;
-    uint64_t       bpl, nBytes;
+    uint64_t       nBytes;
     exr_result_t   rv;
     uint8_t*       bitmap;
     uint16_t*      lut;
@@ -593,10 +586,8 @@ internal_exr_undo_piz (
     if (rv != EXR_ERR_SUCCESS) return rv;
 
     hufspare = decode->scratch_buffer_2;
-    bitmap   = hufspare + hufSpareBytes;
-    lut      = (uint16_t*) (bitmap + BITMAP_SIZE);
-
-    wavbuf = decode->scratch_buffer_1;
+    lut      = (uint16_t*) (hufspare + hufSpareBytes);
+    bitmap   = (uint8_t*) (lut + USHORT_RANGE);
 
     //
     // Read range compression data
@@ -605,7 +596,7 @@ internal_exr_undo_piz (
     memset (bitmap, 0, sizeof (uint8_t) * BITMAP_SIZE);
 
     nBytes = 0;
-    if (sizeof (uint16_t) * 2 > packsz) return EXR_ERR_BAD_CHUNK_DATA;
+    if (sizeof (uint16_t) * 2 > packsz) return EXR_ERR_CORRUPT_CHUNK;
 
     packed     = src;
     minNonZero = unaligned_load16 (packed + nBytes);
@@ -613,12 +604,12 @@ internal_exr_undo_piz (
     maxNonZero = unaligned_load16 (packed + nBytes);
     nBytes += sizeof (uint16_t);
 
-    if (maxNonZero >= BITMAP_SIZE) return EXR_ERR_BAD_CHUNK_DATA;
+    if (maxNonZero >= BITMAP_SIZE) return EXR_ERR_CORRUPT_CHUNK;
 
     if (minNonZero <= maxNonZero)
     {
         uint64_t bytesToRead = maxNonZero - minNonZero + 1;
-        if (nBytes + bytesToRead > packsz) return EXR_ERR_BAD_CHUNK_DATA;
+        if (nBytes + bytesToRead > packsz) return EXR_ERR_CORRUPT_CHUNK;
 
         memcpy (bitmap + minNonZero, packed + nBytes, bytesToRead);
         nBytes += bytesToRead;
@@ -629,13 +620,14 @@ internal_exr_undo_piz (
     //
     // Huffman decoding
     //
-    if (nBytes + sizeof (uint32_t) > packsz) return EXR_ERR_BAD_CHUNK_DATA;
+    if (nBytes + sizeof (uint32_t) > packsz) return EXR_ERR_CORRUPT_CHUNK;
 
     hufbytes = unaligned_load32 (packed + nBytes);
     nBytes += sizeof (uint32_t);
 
-    if (nBytes + hufbytes > packsz) return EXR_ERR_BAD_CHUNK_DATA;
+    if (nBytes + hufbytes > packsz) return EXR_ERR_CORRUPT_CHUNK;
 
+    wavbuf = decode->scratch_buffer_1;
     rv = internal_huf_decompress (
         packed + nBytes, hufbytes, wavbuf, outsz / 2, hufspare, hufSpareBytes);
     if (rv != EXR_ERR_SUCCESS) return rv;
@@ -670,43 +662,39 @@ internal_exr_undo_piz (
     // Rearrange the pixel data into the format expected by the caller.
     //
 
-    for (int y = 0; y < decode->chunk_block.height; ++y)
+    for (int y = 0; y < decode->chunk.height; ++y)
     {
-        int cury = y + decode->chunk_block.start_y;
+        int cury = y + decode->chunk.start_y;
 
         scratch = decode->scratch_buffer_1;
         for (int c = 0; c < decode->channel_count; ++c)
         {
             const exr_coding_channel_info_t* curc = decode->channels + c;
 
-            nx     = curc->width;
-            ny     = curc->height;
-            bpl    = ((uint64_t) (nx)) * (uint64_t) (curc->bytes_per_element);
-            nBytes = ((uint64_t) (ny)) * bpl;
+            nx = curc->width;
+            ny = curc->height;
+            nBytes =
+                ((uint64_t) curc->width) * ((uint64_t) curc->bytes_per_element);
 
             if (nBytes == 0) continue;
 
             tmp = scratch;
             if (curc->y_samples > 1)
             {
-                if ((cury % curc->y_samples) != 0)
-                {
-                    scratch += nBytes;
-                    continue;
-                }
-                tmp += ((uint64_t) (y / curc->y_samples)) * bpl;
+                if ((cury % curc->y_samples) != 0) continue;
+                tmp += ((uint64_t) (y / curc->y_samples)) * nBytes;
             }
             else
-            {
-                tmp += ((uint64_t) y) * bpl;
-            }
+                tmp += ((uint64_t) y) * nBytes;
 
-            memcpy (out, tmp, bpl);
+            memcpy (out, tmp, nBytes);
             priv_from_native16 (out, nx * (curc->bytes_per_element / 2));
-            out += bpl;
-            nOut += bpl;
-            scratch += nBytes;
+            out += nBytes;
+            nOut += nBytes;
+            scratch += ((uint64_t) ny) * nBytes;
         }
     }
+
+    if (nOut != outsz) return EXR_ERR_CORRUPT_CHUNK;
     return EXR_ERR_SUCCESS;
 }

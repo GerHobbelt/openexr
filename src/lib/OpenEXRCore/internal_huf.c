@@ -514,7 +514,7 @@ hufUnpackEncTable (
 
             uint64_t zerun = getBits (8, &c, &lc, &p) + SHORTEST_LONG_RUN;
 
-            if (im + zerun > iM + 1) return EXR_ERR_BAD_CHUNK_DATA;
+            if (im + zerun > iM + 1) return EXR_ERR_CORRUPT_CHUNK;
 
             while (zerun--)
                 hcode[im++] = 0;
@@ -525,7 +525,7 @@ hufUnpackEncTable (
         {
             uint64_t zerun = l - SHORT_ZEROCODE_RUN + 2;
 
-            if (im + zerun > iM + 1) return EXR_ERR_BAD_CHUNK_DATA;
+            if (im + zerun > iM + 1) return EXR_ERR_CORRUPT_CHUNK;
 
             while (zerun--)
                 hcode[im++] = 0;
@@ -584,7 +584,7 @@ hufBuildDecTable (
             // than the largest l-bit number.
             //
 
-            return EXR_ERR_BAD_CHUNK_DATA;
+            return EXR_ERR_CORRUPT_CHUNK;
         }
 
         if (l > HUF_DECBITS)
@@ -602,7 +602,7 @@ hufBuildDecTable (
                 // been stored in table entry *pl.
                 //
 
-                return EXR_ERR_BAD_CHUNK_DATA;
+                return EXR_ERR_CORRUPT_CHUNK;
             }
 
             pl->lit++;
@@ -642,7 +642,7 @@ hufBuildDecTable (
                     // already been stored in table entry *pl.
                     //
 
-                    return EXR_ERR_BAD_CHUNK_DATA;
+                    return EXR_ERR_CORRUPT_CHUNK;
                 }
 
                 pl->len = (int32_t) l;
@@ -798,14 +798,14 @@ hufEncode (
     {                                                                          \
         if (po == rlc)                                                         \
         {                                                                      \
-            if (lc < 8) getChar (c, lc, in);                                   \
+            if (lc < 8) { getChar (c, lc, in); }                               \
                                                                                \
             lc -= 8;                                                           \
                                                                                \
             uint8_t cs = (uint8_t) (c >> lc);                                  \
                                                                                \
             if (out + cs > oe)                                                 \
-                return EXR_ERR_BAD_CHUNK_DATA;                                 \
+                return EXR_ERR_CORRUPT_CHUNK;                                  \
             else if (out - 1 < ob)                                             \
                 return EXR_ERR_OUT_OF_MEMORY;                                  \
                                                                                \
@@ -820,7 +820,7 @@ hufEncode (
         }                                                                      \
         else                                                                   \
         {                                                                      \
-            return EXR_ERR_BAD_CHUNK_DATA;                                     \
+            return EXR_ERR_CORRUPT_CHUNK;                                      \
         }                                                                      \
     }
 
@@ -866,7 +866,7 @@ hufDecode (
                 // Get short code
                 //
 
-                if (pl.len > lc) return EXR_ERR_BAD_CHUNK_DATA;
+                if (pl.len > lc) return EXR_ERR_CORRUPT_CHUNK;
 
                 lc -= pl.len;
                 getCode (pl.lit, rlc, c, lc, in, out, outb, oe)
@@ -875,7 +875,7 @@ hufDecode (
             {
                 uint32_t j;
 
-                if (!pl.p) return EXR_ERR_BAD_CHUNK_DATA; // wrong code
+                if (!pl.p) return EXR_ERR_CORRUPT_CHUNK; // wrong code
 
                 //
                 // Search long code
@@ -906,7 +906,7 @@ hufDecode (
                     }
                 }
 
-                if (j == pl.lit) return EXR_ERR_BAD_CHUNK_DATA;
+                if (j == pl.lit) return EXR_ERR_CORRUPT_CHUNK;
             }
         }
     }
@@ -925,12 +925,12 @@ hufDecode (
 
         if (pl.len)
         {
-            if (pl.len > lc) return EXR_ERR_BAD_CHUNK_DATA;
+            if (pl.len > lc) return EXR_ERR_CORRUPT_CHUNK;
             lc -= pl.len;
             getCode (pl.lit, rlc, c, lc, in, out, outb, oe)
         }
         else
-            return EXR_ERR_BAD_CHUNK_DATA;
+            return EXR_ERR_CORRUPT_CHUNK;
     }
 
     if ((((uintptr_t) out) - ((uintptr_t) outb)) != no)
@@ -1079,19 +1079,20 @@ internal_huf_decompress (
     iM = readUInt (compressed + 4);
     // uint32_t tableLength = readUInt (compressed + 8);
     nBits = readUInt (compressed + 12);
+    // uint32_t future = readUInt (compressed + 16);
 
-    if (im >= HUF_ENCSIZE || iM >= HUF_ENCSIZE) return EXR_ERR_BAD_CHUNK_DATA;
+    if (im >= HUF_ENCSIZE || iM >= HUF_ENCSIZE) return EXR_ERR_CORRUPT_CHUNK;
 
     ptr = compressed + 20;
 
     nBytes = (((uint64_t) (nBits) + 7)) / 8;
     if (ptr + nBytes > compressed + nCompressed) return EXR_ERR_OUT_OF_MEMORY;
 
-        //
-        // Fast decoder needs at least 2x64-bits of compressed data, and
-        // needs to be run-able on this platform. Otherwise, fall back
-        // to the original decoder
-        //
+    //
+    // Fast decoder needs at least 2x64-bits of compressed data, and
+    // needs to be run-able on this platform. Otherwise, fall back
+    // to the original decoder
+    //
 #if 0
     if (FastHufDecoder::enabled () && nBits > 128)
     {
@@ -1109,15 +1110,14 @@ internal_huf_decompress (
     else
 #endif
     {
-        uint64_t* freq = (uint64_t*) spare;
-        HufDec*   hdec = (HufDec*) (freq + HUF_ENCSIZE);
-        uint64_t  nLeft =
-            nCompressed - (((uintptr_t) ptr) - ((uintptr_t) compressed));
+        uint64_t* freq  = (uint64_t*) spare;
+        HufDec*   hdec  = (HufDec*) (freq + HUF_ENCSIZE);
+        uint64_t  nLeft = nCompressed - 20;
 
         hufClearDecTable (hdec);
         hufUnpackEncTable (&ptr, nLeft, im, iM, freq);
 
-        if (nBits > 8 * nLeft) return EXR_ERR_BAD_CHUNK_DATA;
+        if (nBits > 8 * nLeft) return EXR_ERR_CORRUPT_CHUNK;
 
         rv = hufBuildDecTable (freq, im, iM, hdec);
         hufDecode (freq, hdec, ptr, nBits, iM, nRaw, raw);

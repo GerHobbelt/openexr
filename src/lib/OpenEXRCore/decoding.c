@@ -18,8 +18,46 @@
 static exr_result_t
 update_pack_unpack_ptrs (exr_decode_pipeline_t* decode)
 {
-    exr_result_t rv;
-    if (decode->chunk_block.packed_size == decode->chunk_block.unpacked_size)
+    exr_result_t  rv;
+    exr_storage_t stortype = ((exr_storage_t) decode->chunk.type);
+
+    if (stortype == EXR_STORAGE_DEEP_SCANLINE ||
+        stortype == EXR_STORAGE_DEEP_TILED)
+    {
+        size_t sampsize =
+            (((size_t) decode->chunk.width) * ((size_t) decode->chunk.height));
+
+        if ((decode->decode_flags & EXR_DECODE_SAMPLE_COUNTS_AS_INDIVIDUAL))
+            sampsize += 1;
+        sampsize *= sizeof (int32_t);
+
+        if (decode->chunk.sample_count_table_size == sampsize)
+        {
+            internal_decode_free_buffer (
+                decode,
+                EXR_TRANSCODE_BUFFER_SAMPLES,
+                (void**) &(decode->sample_count_table),
+                &(decode->sample_count_alloc_size));
+
+            decode->sample_count_table = decode->packed_sample_count_table;
+            rv                         = EXR_ERR_SUCCESS;
+        }
+        else
+        {
+            rv = internal_decode_alloc_buffer (
+                decode,
+                EXR_TRANSCODE_BUFFER_SAMPLES,
+                (void**) &(decode->sample_count_table),
+                &(decode->sample_count_alloc_size),
+                sampsize);
+        }
+
+        if (rv != EXR_ERR_SUCCESS ||
+            (decode->decode_flags & EXR_DECODE_SAMPLE_DATA_ONLY) != 0)
+            return rv;
+    }
+
+    if (decode->chunk.packed_size == decode->chunk.unpacked_size)
     {
         internal_decode_free_buffer (
             decode,
@@ -37,8 +75,9 @@ update_pack_unpack_ptrs (exr_decode_pipeline_t* decode)
             EXR_TRANSCODE_BUFFER_UNPACKED,
             &(decode->unpacked_buffer),
             &(decode->unpacked_alloc_size),
-            decode->chunk_block.unpacked_size);
+            decode->chunk.unpacked_size);
     }
+
     return rv;
 }
 
@@ -52,10 +91,10 @@ read_uncompressed_direct (exr_decode_pipeline_t* decode)
     EXR_PROMOTE_READ_CONST_CONTEXT_AND_PART_OR_ERROR (
         decode->context, decode->part_index);
 
-    dataoffset = decode->chunk_block.data_offset;
+    dataoffset = decode->chunk.data_offset;
 
-    height  = decode->chunk_block.height;
-    start_y = decode->chunk_block.start_y;
+    height  = decode->chunk.height;
+    start_y = decode->chunk.start_y;
     for (int y = 0; y < height; ++y)
     {
         for (int c = 0; c < decode->channel_count; ++c)
@@ -107,14 +146,6 @@ default_read_chunk (exr_decode_pipeline_t* decode)
         decode->unpacked_alloc_size == 0)
         decode->unpacked_buffer = NULL;
 
-    rv = internal_decode_alloc_buffer (
-        decode,
-        EXR_TRANSCODE_BUFFER_PACKED,
-        &(decode->packed_buffer),
-        &(decode->packed_alloc_size),
-        decode->chunk_block.packed_size);
-    if (rv != EXR_ERR_SUCCESS) return rv;
-
     if (part->storage_mode == EXR_STORAGE_DEEP_SCANLINE ||
         part->storage_mode == EXR_STORAGE_DEEP_TILED)
     {
@@ -123,21 +154,49 @@ default_read_chunk (exr_decode_pipeline_t* decode)
             EXR_TRANSCODE_BUFFER_PACKED_SAMPLES,
             &(decode->packed_sample_count_table),
             &(decode->packed_sample_count_alloc_size),
-            decode->chunk_block.sample_count_table_size);
+            decode->chunk.sample_count_table_size);
         if (rv != EXR_ERR_SUCCESS) return rv;
-        rv = exr_read_deep_chunk (
-            decode->context,
-            decode->part_index,
-            &(decode->chunk_block),
-            decode->packed_buffer,
-            decode->packed_sample_count_table);
+
+        if ((decode->decode_flags & EXR_DECODE_SAMPLE_DATA_ONLY))
+        {
+            rv = exr_read_deep_chunk (
+                decode->context,
+                decode->part_index,
+                &(decode->chunk),
+                NULL,
+                decode->packed_sample_count_table);
+        }
+        else
+        {
+            rv = internal_decode_alloc_buffer (
+                decode,
+                EXR_TRANSCODE_BUFFER_PACKED,
+                &(decode->packed_buffer),
+                &(decode->packed_alloc_size),
+                decode->chunk.packed_size);
+            if (rv != EXR_ERR_SUCCESS) return rv;
+
+            rv = exr_read_deep_chunk (
+                decode->context,
+                decode->part_index,
+                &(decode->chunk),
+                decode->packed_buffer,
+                decode->packed_sample_count_table);
+        }
     }
     else
     {
+        rv = internal_decode_alloc_buffer (
+            decode,
+            EXR_TRANSCODE_BUFFER_PACKED,
+            &(decode->packed_buffer),
+            &(decode->packed_alloc_size),
+            decode->chunk.packed_size);
+        if (rv != EXR_ERR_SUCCESS) return rv;
         rv = exr_read_chunk (
             decode->context,
             decode->part_index,
-            &(decode->chunk_block),
+            &(decode->chunk),
             decode->packed_buffer);
     }
 
@@ -158,7 +217,8 @@ decompress_data (
 
     if (packsz == 0) return EXR_ERR_SUCCESS;
 
-    if (packsz == unpacksz && ctype != EXR_COMPRESSION_B44 && ctype != EXR_COMPRESSION_B44A)
+    if (packsz == unpacksz && ctype != EXR_COMPRESSION_B44 &&
+        ctype != EXR_COMPRESSION_B44A)
     {
         if (unpackbufptr != packbufptr)
             memcpy (unpackbufptr, packbufptr, unpacksz);
@@ -221,44 +281,114 @@ decompress_data (
 static exr_result_t
 default_decompress_chunk (exr_decode_pipeline_t* decode)
 {
-    exr_result_t rv;
+    exr_result_t rv = EXR_ERR_SUCCESS;
     EXR_PROMOTE_READ_CONST_CONTEXT_AND_PART_OR_ERROR (
         decode->context, decode->part_index);
 
     if (part->storage_mode == EXR_STORAGE_DEEP_SCANLINE ||
         part->storage_mode == EXR_STORAGE_DEEP_TILED)
     {
-        size_t unpack_sample_size =
-            (size_t) (decode->chunk_block.width) * sizeof (int32_t);
-
-        rv = internal_decode_alloc_buffer (
-            decode,
-            EXR_TRANSCODE_BUFFER_SAMPLES,
-            (void**) &(decode->sample_count_table),
-            &(decode->sample_count_alloc_size),
-            unpack_sample_size);
-
-        if (rv != EXR_ERR_SUCCESS) return rv;
+        size_t sampsize =
+            (((size_t) decode->chunk.width) * ((size_t) decode->chunk.height));
+        sampsize *= sizeof (int32_t);
 
         rv = decompress_data (
             pctxt,
             part->comp_type,
             decode,
             decode->packed_sample_count_table,
-            decode->chunk_block.sample_count_table_size,
+            decode->chunk.sample_count_table_size,
             decode->sample_count_table,
-            unpack_sample_size);
+            sampsize);
+
+        if (rv != EXR_ERR_SUCCESS)
+        {
+            return pctxt->print_error (
+                pctxt,
+                rv,
+                "Unable to decompress sample table %lu -> %lu",
+                decode->chunk.sample_count_table_size,
+                sampsize);
+        }
+        if ((decode->decode_flags & EXR_DECODE_SAMPLE_DATA_ONLY)) return rv;
     }
 
-    rv = decompress_data (
-        pctxt,
-        part->comp_type,
-        decode,
-        decode->packed_buffer,
-        decode->chunk_block.packed_size,
-        decode->unpacked_buffer,
-        decode->chunk_block.unpacked_size);
+    if (rv == EXR_ERR_SUCCESS)
+        rv = decompress_data (
+            pctxt,
+            part->comp_type,
+            decode,
+            decode->packed_buffer,
+            decode->chunk.packed_size,
+            decode->unpacked_buffer,
+            decode->chunk.unpacked_size);
 
+    if (rv != EXR_ERR_SUCCESS)
+    {
+        return pctxt->print_error (
+            pctxt,
+            rv,
+            "Unable to decompress image data %lu -> %lu",
+            decode->chunk.packed_size,
+            decode->chunk.unpacked_size);
+    }
+    return rv;
+}
+
+static exr_result_t
+unpack_sample_table (
+    const struct _internal_exr_context* pctxt, exr_decode_pipeline_t* decode)
+{
+    exr_result_t rv           = EXR_ERR_SUCCESS;
+    int32_t      w            = decode->chunk.width;
+    int32_t      h            = decode->chunk.height;
+    int32_t      totsamp      = 0;
+    int32_t*     samptable    = decode->sample_count_table;
+    size_t       combSampSize = 0;
+
+    for (int c = 0; c < decode->channel_count; ++c)
+        combSampSize += ((size_t) decode->channels[c].bytes_per_element);
+
+    if ((decode->decode_flags & EXR_DECODE_SAMPLE_COUNTS_AS_INDIVIDUAL))
+    {
+        for (int32_t y = 0; y < h; ++y)
+        {
+            int32_t prevsamp = 0;
+            for (int32_t x = 0; x < w; ++x)
+            {
+                int32_t nsamps =
+                    (int32_t) one_to_native32 ((uint32_t) samptable[y * w + x]);
+                if (nsamps < 0) return EXR_ERR_INVALID_SAMPLE_DATA;
+                samptable[y * w + x] = nsamps - prevsamp;
+                prevsamp             = nsamps;
+            }
+            totsamp += prevsamp;
+        }
+        samptable[w * h] = totsamp;
+    }
+    else
+    {
+        for (int32_t y = 0; y < h; ++y)
+        {
+            int32_t prevsamp = 0;
+            for (int32_t x = 0; x < w; ++x)
+            {
+                int32_t nsamps =
+                    (int32_t) one_to_native32 ((uint32_t) samptable[y * w + x]);
+                if (nsamps < 0) return EXR_ERR_INVALID_SAMPLE_DATA;
+                samptable[y * w + x] = nsamps;
+                prevsamp             = nsamps;
+            }
+            totsamp += prevsamp;
+        }
+    }
+
+    if (totsamp < 0 ||
+        (((uint64_t) totsamp) * combSampSize) > decode->chunk.unpacked_size)
+    {
+        rv = pctxt->report_error (
+            pctxt, EXR_ERR_INVALID_SAMPLE_DATA, "Corrupt sample count table");
+    }
     return rv;
 }
 
@@ -266,10 +396,10 @@ default_decompress_chunk (exr_decode_pipeline_t* decode)
 
 exr_result_t
 exr_decoding_initialize (
-    exr_const_context_t           ctxt,
-    int                           part_index,
-    const exr_chunk_block_info_t* cinfo,
-    exr_decode_pipeline_t*        decode)
+    exr_const_context_t     ctxt,
+    int                     part_index,
+    const exr_chunk_info_t* cinfo,
+    exr_decode_pipeline_t*  decode)
 {
     exr_result_t          rv;
     exr_decode_pipeline_t nil = { 0 };
@@ -290,18 +420,9 @@ exr_decoding_initialize (
 
     if (rv == EXR_ERR_SUCCESS)
     {
-        size_t unpackbytes = 0;
-        for (int c = 0; c < decode->channel_count; ++c)
-        {
-            const exr_coding_channel_info_t* encc = (decode->channels + c);
-            unpackbytes +=
-                ((uint64_t) (encc->height) * (uint64_t) (encc->width) *
-                 (uint64_t) (encc->bytes_per_element));
-        }
-        decode->part_index                = part_index;
-        decode->context                   = ctxt;
-        decode->chunk_block               = *cinfo;
-        decode->chunk_block.unpacked_size = unpackbytes;
+        decode->part_index = part_index;
+        decode->context    = ctxt;
+        decode->chunk      = *cinfo;
     }
     return rv;
 }
@@ -312,8 +433,8 @@ exr_decoding_choose_default_routines (
 {
     int32_t isdeep = 0, chanstofill = 0, chanstounpack = 0, sametype = -2,
             sameouttype = -2, samebpc = 0, sameoutbpc = 0, hassampling = 0,
-            hastypechange = 0, simpinterleave = 0, simplineoff = 0,
-            sameoutinc     = 0;
+            hastypechange = 0, simpinterleave = 0, simpinterleaverev = 0,
+            simplineoff = 0, sameoutinc = 0;
     uint8_t* interleaveptr = NULL;
     EXR_PROMOTE_READ_CONST_CONTEXT_AND_PART_OR_ERROR (ctxt, part_index);
     if (!decode) return pctxt->standard_error (pctxt, EXR_ERR_INVALID_ARGUMENT);
@@ -395,16 +516,26 @@ exr_decoding_choose_default_routines (
 
         if (simpinterleave == 0)
         {
-            interleaveptr  = decc->decode_to_ptr;
-            simpinterleave = decc->user_pixel_stride;
+            interleaveptr     = decc->decode_to_ptr;
+            simpinterleave    = decc->user_pixel_stride;
+            simpinterleaverev = decc->user_pixel_stride;
         }
-        else if (
-            simpinterleave != decc->user_pixel_stride ||
-            decc->decode_to_ptr !=
-                (interleaveptr + c * decc->user_bytes_per_element))
+        else
         {
-            interleaveptr  = NULL;
-            simpinterleave = -1;
+            if (simpinterleave > 0 &&
+                decc->decode_to_ptr !=
+                    (interleaveptr + c * decc->user_bytes_per_element))
+            {
+                simpinterleave = -1;
+            }
+            if (simpinterleaverev > 0 &&
+                decc->decode_to_ptr !=
+                    (interleaveptr - c * decc->user_bytes_per_element))
+            {
+                simpinterleaverev = -1;
+            }
+            if (simpinterleave < 0 && simpinterleaverev < 0)
+                interleaveptr = NULL;
         }
 
         if (sameoutinc == 0)
@@ -413,9 +544,10 @@ exr_decoding_choose_default_routines (
             sameoutinc = -1;
     }
 
-    if (simpinterleave != sameoutbpc * decode->channel_count ||
-        interleaveptr == NULL)
+    if (simpinterleave != sameoutbpc * decode->channel_count)
         simpinterleave = -1;
+    if (simpinterleaverev != sameoutbpc * decode->channel_count)
+        simpinterleaverev = -1;
 
     /* special case, uncompressed and reading planar data straight in
      * to all the channels */
@@ -445,6 +577,7 @@ exr_decoding_choose_default_routines (
         hastypechange,
         sameoutinc,
         simpinterleave,
+        simpinterleaverev,
         simplineoff);
 
     if (!decode->unpack_and_convert_fn)
@@ -460,10 +593,10 @@ exr_decoding_choose_default_routines (
 
 exr_result_t
 exr_decoding_update (
-    exr_const_context_t           ctxt,
-    int                           part_index,
-    const exr_chunk_block_info_t* cinfo,
-    exr_decode_pipeline_t*        decode)
+    exr_const_context_t     ctxt,
+    int                     part_index,
+    const exr_chunk_info_t* cinfo,
+    exr_decode_pipeline_t*  decode)
 {
     exr_result_t rv;
     EXR_PROMOTE_READ_CONST_CONTEXT_AND_PART_OR_ERROR (ctxt, part_index);
@@ -478,19 +611,7 @@ exr_decoding_update (
 
     rv = internal_coding_update_channel_info (
         decode->channels, decode->channel_count, cinfo, pctxt, part);
-    {
-        size_t unpackbytes = 0;
-
-        decode->chunk_block = *cinfo;
-        for (int c = 0; c < decode->channel_count; ++c)
-        {
-            const exr_coding_channel_info_t* encc = (decode->channels + c);
-            unpackbytes +=
-                ((uint64_t) (encc->height) * (uint64_t) (encc->width) *
-                 (uint64_t) (encc->bytes_per_element));
-        }
-        decode->chunk_block.unpacked_size = unpackbytes;
-    }
+    decode->chunk = *cinfo;
 
     return rv;
 }
@@ -517,14 +638,51 @@ exr_decoding_run (
             EXR_ERR_INVALID_ARGUMENT,
             "Decode pipeline has no read_fn declared");
     rv = decode->read_fn (decode);
+    if (rv != EXR_ERR_SUCCESS)
+        return pctxt->report_error (
+            pctxt,
+            rv,
+            "Unable to read pixel data block from context");
 
     if (rv == EXR_ERR_SUCCESS) rv = update_pack_unpack_ptrs (decode);
+    if (rv != EXR_ERR_SUCCESS)
+        return pctxt->report_error (
+            pctxt,
+            rv,
+            "Decode pipeline unable to update pack / unpack pointers");
 
     if (rv == EXR_ERR_SUCCESS && decode->decompress_fn)
         rv = decode->decompress_fn (decode);
+    if (rv != EXR_ERR_SUCCESS)
+        return pctxt->report_error (
+            pctxt, rv, "Decode pipeline unable to decompress data");
+
+    if (rv == EXR_ERR_SUCCESS &&
+        (part->storage_mode == EXR_STORAGE_DEEP_SCANLINE ||
+         part->storage_mode == EXR_STORAGE_DEEP_TILED))
+    {
+        rv = unpack_sample_table (pctxt, decode);
+
+        if ((decode->decode_flags & EXR_DECODE_SAMPLE_DATA_ONLY)) return rv;
+    }
+
+    if (rv != EXR_ERR_SUCCESS)
+        return pctxt->report_error (
+            pctxt, rv, "Decode pipeline unable to unpack deep sample table");
+
+    if (rv == EXR_ERR_SUCCESS && decode->realloc_nonimage_data_fn)
+        rv = decode->realloc_nonimage_data_fn (decode);
+    if (rv != EXR_ERR_SUCCESS)
+        return pctxt->report_error (
+            pctxt,
+            rv,
+            "Decode pipeline unable to realloc deep sample table info");
 
     if (rv == EXR_ERR_SUCCESS && decode->unpack_and_convert_fn)
         rv = decode->unpack_and_convert_fn (decode);
+    if (rv != EXR_ERR_SUCCESS)
+        return pctxt->report_error (
+            pctxt, rv, "Decode pipeline unable to unpack and convert data");
 
     return rv;
 }

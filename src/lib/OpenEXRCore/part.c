@@ -198,8 +198,8 @@ exr_get_tile_levels (
         {
             return EXR_UNLOCK_WRITE_AND_RETURN_PCTXT (pctxt->print_error (
                 pctxt,
-                EXR_ERR_BAD_CHUNK_DATA,
-                "Request for tile, but no tile data exists"));
+                EXR_ERR_MISSING_REQ_ATTR,
+                "Tile data missing or corrupt"));
         }
 
         if (levelsx) *levelsx = part->num_tile_levels_x;
@@ -235,8 +235,8 @@ exr_get_tile_sizes (
         {
             return EXR_UNLOCK_WRITE_AND_RETURN_PCTXT (pctxt->print_error (
                 pctxt,
-                EXR_ERR_BAD_CHUNK_DATA,
-                "Request for tile, but no tile data exists"));
+                EXR_ERR_MISSING_REQ_ATTR,
+                "Tile data missing or corrupt"));
         }
 
         if (levelx < 0 || levely < 0 || levelx >= part->num_tile_levels_x ||
@@ -247,16 +247,60 @@ exr_get_tile_sizes (
         tiledesc = part->tiles->tiledesc;
         if (tilew)
         {
-            *tilew = part->tile_level_tile_size_x[levelx];
-            if (tiledesc->x_size < (uint32_t) *tilew)
+            int32_t levw = part->tile_level_tile_size_x[levelx];
+            if (tiledesc->x_size < (uint32_t) levw)
                 *tilew = (int32_t) tiledesc->x_size;
+            else
+                *tilew = levw;
         }
         if (tileh)
         {
-            *tileh = part->tile_level_tile_size_y[levely];
-            if (tiledesc->y_size < (uint32_t) *tileh)
+            int32_t levh = part->tile_level_tile_size_y[levely];
+            if (tiledesc->y_size < (uint32_t) levh)
                 *tileh = (int32_t) tiledesc->y_size;
+            else
+                *tileh = levh;
         }
+        return EXR_UNLOCK_WRITE_AND_RETURN_PCTXT (EXR_ERR_SUCCESS);
+    }
+
+    return EXR_UNLOCK_WRITE_AND_RETURN_PCTXT (
+        pctxt->standard_error (pctxt, EXR_ERR_TILE_SCAN_MIXEDAPI));
+}
+
+/**************************************/
+
+exr_result_t
+exr_get_level_sizes (
+    exr_const_context_t ctxt,
+    int                 part_index,
+    int                 levelx,
+    int                 levely,
+    int32_t*            levw,
+    int32_t*            levh)
+{
+    EXR_PROMOTE_CONST_CONTEXT_AND_PART_OR_ERROR (ctxt, part_index);
+
+    if (part->storage_mode == EXR_STORAGE_TILED ||
+        part->storage_mode == EXR_STORAGE_DEEP_TILED)
+    {
+        if (!part->tiles || part->num_tile_levels_x <= 0 ||
+            part->num_tile_levels_y <= 0 || !part->tile_level_tile_count_x ||
+            !part->tile_level_tile_count_y)
+        {
+            return EXR_UNLOCK_WRITE_AND_RETURN_PCTXT (pctxt->print_error (
+                pctxt,
+                EXR_ERR_MISSING_REQ_ATTR,
+                "Tile data missing or corrupt"));
+        }
+
+        if (levelx < 0 || levely < 0 || levelx >= part->num_tile_levels_x ||
+            levely >= part->num_tile_levels_y)
+            return EXR_UNLOCK_WRITE_AND_RETURN_PCTXT (
+                pctxt->standard_error (pctxt, EXR_ERR_ARGUMENT_OUT_OF_RANGE));
+
+        if (levw) *levw = part->tile_level_tile_size_x[levelx];
+        if (levh) *levh = part->tile_level_tile_size_y[levely];
         return EXR_UNLOCK_WRITE_AND_RETURN_PCTXT (EXR_ERR_SUCCESS);
     }
 
@@ -287,8 +331,8 @@ exr_get_chunk_count (exr_const_context_t ctxt, int part_index, int32_t* out)
             }
             return EXR_UNLOCK_WRITE_AND_RETURN_PCTXT (pctxt->report_error (
                 pctxt,
-                EXR_ERR_BAD_CHUNK_DATA,
-                "Missing tile chunk information"));
+                EXR_ERR_MISSING_REQ_ATTR,
+                "Tile data missing or corrupt"));
         }
         else if (
             part->storage_mode == EXR_STORAGE_SCANLINE ||
@@ -301,14 +345,14 @@ exr_get_chunk_count (exr_const_context_t ctxt, int part_index, int32_t* out)
             }
             return EXR_UNLOCK_WRITE_AND_RETURN_PCTXT (pctxt->report_error (
                 pctxt,
-                EXR_ERR_BAD_CHUNK_DATA,
+                EXR_ERR_MISSING_REQ_ATTR,
                 "Missing scanline chunk compression information"));
         }
     }
 
     return EXR_UNLOCK_WRITE_AND_RETURN_PCTXT (pctxt->report_error (
         pctxt,
-        EXR_ERR_BAD_CHUNK_DATA,
+        EXR_ERR_MISSING_REQ_ATTR,
         "Missing data window for chunk information"));
 }
 

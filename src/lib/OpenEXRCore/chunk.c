@@ -144,16 +144,14 @@ alloc_chunk_table (
 /**************************************/
 
 exr_result_t
-exr_read_scanline_block_info (
-    exr_const_context_t     ctxt,
-    int                     part_index,
-    int                     y,
-    exr_chunk_block_info_t* cinfo)
+exr_read_scanline_chunk_info (
+    exr_const_context_t ctxt, int part_index, int y, exr_chunk_info_t* cinfo)
 {
     exr_result_t     rv;
     int              miny, cidx, rdcnt, lpc;
     int32_t          data[3];
     int64_t          ddata[3];
+    int64_t          fsize;
     uint64_t         dataoff;
     exr_attr_box2i_t dw;
     uint64_t*        ctable;
@@ -168,30 +166,25 @@ exr_read_scanline_block_info (
     }
 
     dw = part->data_window;
-    if (y < dw.y_min || y > dw.y_max)
+    if (y < dw.min.y || y > dw.max.y)
     {
         return pctxt->print_error (
             pctxt,
             EXR_ERR_INVALID_ARGUMENT,
             "Invalid request for scanline %d outside range of data window (%d - %d)",
             y,
-            dw.y_min,
-            dw.y_max);
+            dw.min.y,
+            dw.max.y);
     }
 
     lpc  = part->lines_per_chunk;
-    cidx = (y - dw.y_min);
+    cidx = (y - dw.min.y);
     if (lpc > 1) cidx /= lpc;
 
-    if (part->lineorder == EXR_LINEORDER_DECREASING_Y)
-    {
-        cidx = part->chunk_count - (cidx + 1);
-        miny = dw.y_max - (cidx + 1) * lpc;
-    }
-    else
-    {
-        miny = cidx * lpc + dw.y_min;
-    }
+    // do we need to invert this when reading decreasing y? it appears not
+    //if (part->lineorder == EXR_LINEORDER_DECREASING_Y)
+    //    cidx = part->chunk_count - (cidx + 1);
+    miny = (dw.min.y + cidx * lpc);
 
     if (cidx < 0 || cidx >= part->chunk_count)
     {
@@ -207,18 +200,18 @@ exr_read_scanline_block_info (
     cinfo->idx         = cidx;
     cinfo->type        = (uint8_t) part->storage_mode;
     cinfo->compression = (uint8_t) part->comp_type;
-    cinfo->start_x     = dw.x_min;
+    cinfo->start_x     = dw.min.x;
     cinfo->start_y     = miny;
-    cinfo->width       = dw.x_max - dw.x_min + 1;
+    cinfo->width       = dw.max.x - dw.min.x + 1;
     cinfo->height      = lpc;
-    if (miny < dw.y_min)
+    if (miny < dw.min.y)
     {
-        cinfo->start_y = dw.y_min;
-        cinfo->height -= (dw.y_min - miny);
+        cinfo->start_y = dw.min.y;
+        cinfo->height -= (dw.min.y - miny);
     }
-    else if ((miny + lpc) > dw.y_max)
+    else if ((miny + lpc) > dw.max.y)
     {
-        cinfo->height = (dw.y_max - miny + 1);
+        cinfo->height = (dw.max.y - miny + 1);
     }
     cinfo->level_x = 0;
     cinfo->level_y = 0;
@@ -252,9 +245,10 @@ exr_read_scanline_block_info (
         {
             return pctxt->print_error (
                 pctxt,
-                EXR_ERR_BAD_CHUNK_DATA,
-                "Request for scanline %d found mismatch part %d vs %d in file",
+                EXR_ERR_BAD_CHUNK_LEADER,
+                "Preparing read scanline %d (chunk %d), found corrupt leader: part says %d, expected %d",
                 y,
+                cidx,
                 data[rdcnt],
                 part_index);
         }
@@ -264,14 +258,15 @@ exr_read_scanline_block_info (
     {
         return pctxt->print_error (
             pctxt,
-            EXR_ERR_BAD_CHUNK_DATA,
-            "Request for scanline %d found scanline %d, not %d at chunk %d",
+            EXR_ERR_BAD_CHUNK_LEADER,
+            "Preparing to read scanline %d (chunk %d), found corrupt leader: scanline says %d, expected %d",
             y,
+            cidx,
             data[rdcnt],
-            miny,
-            cidx);
+            miny);
     }
 
+    fsize = pctxt->file_size;
     if (part->storage_mode == EXR_STORAGE_DEEP_SCANLINE)
     {
         rv = pctxt->do_read (
@@ -288,29 +283,30 @@ exr_read_scanline_block_info (
         {
             return pctxt->print_error (
                 pctxt,
-                EXR_ERR_BAD_CHUNK_DATA,
-                "Request for deep scanline %d invalid sample table size %" PRId64,
+                EXR_ERR_BAD_CHUNK_LEADER,
+                "Preparing to read scanline %d (chunk %d), found corrupt leader: invalid sample table size %" PRId64,
                 y,
+                cidx,
                 ddata[0]);
         }
         if (ddata[1] < 0 || ddata[1] > (int64_t) INT_MAX)
         {
             return pctxt->print_error (
                 pctxt,
-                EXR_ERR_BAD_CHUNK_DATA,
-                "Request for deep scanline %d large packed size %" PRId64
-                " not supported",
+                EXR_ERR_BAD_CHUNK_LEADER,
+                "Preparing to read scanline %d (chunk %d), found corrupt leader: invalid packed data size %" PRId64,
                 y,
+                cidx,
                 ddata[1]);
         }
         if (ddata[2] < 0 || ddata[2] > (int64_t) INT_MAX)
         {
             return pctxt->print_error (
                 pctxt,
-                EXR_ERR_BAD_CHUNK_DATA,
-                "Request for deep scanline %d large unpacked size %" PRId64
-                " not supported",
+                EXR_ERR_BAD_CHUNK_LEADER,
+                "Preparing to scanline %d (chunk %d), found corrupt leader: unsupported unpacked data size %" PRId64,
                 y,
+                cidx,
                 ddata[2]);
         }
 
@@ -319,26 +315,83 @@ exr_read_scanline_block_info (
         cinfo->data_offset              = dataoff + (uint64_t) ddata[0];
         cinfo->packed_size              = (uint64_t) ddata[1];
         cinfo->unpacked_size            = (uint64_t) ddata[2];
+
+        if (fsize > 0 &&
+            ((cinfo->sample_count_data_offset +
+              cinfo->sample_count_table_size) > ((uint64_t) fsize) ||
+             (cinfo->data_offset + cinfo->packed_size) > ((uint64_t) fsize)))
+        {
+            return pctxt->print_error (
+                pctxt,
+                EXR_ERR_BAD_CHUNK_LEADER,
+                "Preparing to scanline %d (chunk %d), found corrupt leader: sample table and data result in access past end of the file: sample table size %" PRId64
+                " + data size %" PRId64 " larger than file %" PRId64,
+                y,
+                cidx,
+                ddata[0],
+                ddata[1],
+                fsize);
+        }
     }
     else
     {
+        uint64_t unpacksize = 0;
+        if (cinfo->height == lpc)
+        {
+            unpacksize = part->unpacked_size_per_chunk;
+        }
+        else
+        {
+            const exr_attr_chlist_t* chanlist = part->channels->chlist;
+            for (int c = 0; c < chanlist->num_channels; ++c)
+            {
+                const exr_attr_chlist_entry_t* curc = (chanlist->entries + c);
+                if (curc->y_sampling > 1 || curc->x_sampling > 1)
+                    unpacksize +=
+                        (((uint64_t) (cinfo->height / curc->y_sampling)) *
+                         ((uint64_t) (cinfo->width / curc->x_sampling)) *
+                         ((curc->pixel_type == EXR_PIXEL_HALF) ? 2 : 4));
+                else
+                    unpacksize +=
+                        ((uint64_t) cinfo->height) * ((uint64_t) cinfo->width) *
+                        ((curc->pixel_type == EXR_PIXEL_HALF) ? 2 : 4);
+            }
+        }
+
         ++rdcnt;
         if (data[rdcnt] < 0 ||
             (uint64_t) data[rdcnt] > part->unpacked_size_per_chunk)
         {
             return pctxt->print_error (
                 pctxt,
-                EXR_ERR_BAD_CHUNK_DATA,
-                "Request for scanline %d found invalid packed data block size %d",
+                EXR_ERR_BAD_CHUNK_LEADER,
+                "Preparing to read scanline %d (chunk %d), found corrupt leader: packed data size says %" PRIu64
+                ", must be between 0 and %" PRIu64,
                 y,
-                data[rdcnt]);
+                cidx,
+                (uint64_t) data[rdcnt],
+                part->unpacked_size_per_chunk);
         }
 
         cinfo->data_offset              = dataoff;
         cinfo->packed_size              = (uint64_t) data[rdcnt];
-        cinfo->unpacked_size            = part->unpacked_size_per_chunk;
+        cinfo->unpacked_size            = unpacksize;
         cinfo->sample_count_data_offset = 0;
         cinfo->sample_count_table_size  = 0;
+
+        if (fsize > 0 &&
+            (cinfo->data_offset + cinfo->packed_size) > ((uint64_t) fsize))
+        {
+            return pctxt->print_error (
+                pctxt,
+                EXR_ERR_BAD_CHUNK_LEADER,
+                "Preparing to read scanline %d (chunk %d), found corrupt leader: packed size %" PRIu64
+                ", file size %" PRId64,
+                y,
+                cidx,
+                (uint64_t) data[rdcnt],
+                fsize);
+        }
     }
     return EXR_ERR_SUCCESS;
 }
@@ -435,12 +488,40 @@ compute_tile_chunk_off (
                     part->num_tile_levels_y);
             }
 
-            // TODO
-            return ctxt->print_error (
-                ctxt,
-                EXR_ERR_UNKNOWN,
-                "RIPMAP support not yet finished in C layer");
-            //break;
+            numx = part->tile_level_tile_count_x[levelx];
+            numy = part->tile_level_tile_count_y[levely];
+
+            if (tilex >= numx || tiley >= numy)
+            {
+                return ctxt->print_error (
+                    ctxt,
+                    EXR_ERR_INVALID_ARGUMENT,
+                    "Request for tile (%d, %d) at rip level %d, %d level only has %d x %d tiles",
+                    tilex,
+                    tiley,
+                    levelx,
+                    levely,
+                    numx,
+                    numy);
+            }
+
+            for (int ly = 0; ly < levely; ++ly)
+            {
+                for (int lx = 0; lx < levelx; ++lx)
+                {
+                    chunkoff +=
+                        ((int64_t) part->tile_level_tile_count_x[lx] *
+                         (int64_t) part->tile_level_tile_count_y[ly]);
+                }
+            }
+            for (int lx = 0; lx < levelx; ++lx)
+            {
+                chunkoff +=
+                    ((int64_t) part->tile_level_tile_count_x[lx] *
+                     (int64_t) numy);
+            }
+            chunkoff += tiley * numx + tilex;
+            break;
         case EXR_TILE_LAST_TYPE:
         default:
             return ctxt->print_error (
@@ -464,21 +545,21 @@ compute_tile_chunk_off (
 /**************************************/
 
 exr_result_t
-exr_read_tile_block_info (
-    exr_const_context_t     ctxt,
-    int                     part_index,
-    int                     tilex,
-    int                     tiley,
-    int                     levelx,
-    int                     levely,
-    exr_chunk_block_info_t* cinfo)
+exr_read_tile_chunk_info (
+    exr_const_context_t ctxt,
+    int                 part_index,
+    int                 tilex,
+    int                 tiley,
+    int                 levelx,
+    int                 levely,
+    exr_chunk_info_t*   cinfo)
 {
     exr_result_t               rv;
     int32_t                    data[6];
     int32_t*                   tdata;
     int32_t                    cidx, ntoread;
     uint64_t                   dataoff;
-    int64_t                    fsize;
+    int64_t                    fsize, tend, dend;
     const exr_attr_chlist_t*   chanlist;
     const exr_attr_tiledesc_t* tiledesc;
     int                        tilew, tileh, unpacksize = 0;
@@ -500,33 +581,27 @@ exr_read_tile_block_info (
         !part->tile_level_tile_count_y)
     {
         return pctxt->print_error (
-            pctxt,
-            EXR_ERR_BAD_CHUNK_DATA,
-            "Request for tile, but no tile data exists");
+            pctxt, EXR_ERR_MISSING_REQ_ATTR, "Tile data missing or corrupt");
     }
 
     tiledesc = part->tiles->tiledesc;
-    tilew    = part->tile_level_tile_size_x[levelx];
-    if (tiledesc->x_size < (uint32_t) tilew) tilew = (int) tiledesc->x_size;
-    tileh = part->tile_level_tile_size_y[levely];
-    if (tiledesc->y_size < (uint32_t) tileh) tileh = (int) tiledesc->y_size;
 
-    if (((int64_t) (tilex) * (int64_t) (tilew) + (int64_t) (tilew) +
-         (int64_t) (part->data_window.x_min) - 1) >
-        (int64_t) (part->data_window.x_max))
+    tilew = (int) (tiledesc->x_size);
+    dend  = ((int64_t) part->tile_level_tile_size_x[levelx]);
+    tend  = ((int64_t) tilew) * ((int64_t) (tilex + 1));
+    if (tend > dend)
     {
-        int64_t sz = (int64_t) (part->data_window.x_max) -
-                     (int64_t) (part->data_window.x_min) + 1;
-        tilew = (int) (sz - ((int64_t) (tilex) * (int64_t) (tilew)));
+        tend -= dend;
+        if (tend < tilew) tilew = tilew - ((int) tend);
     }
 
-    if (((int64_t) (tiley) * (int64_t) (tileh) + (int64_t) (tileh) +
-         (int64_t) (part->data_window.y_min) - 1) >
-        (int64_t) (part->data_window.y_max))
+    tileh = (int) (tiledesc->y_size);
+    dend  = ((int64_t) part->tile_level_tile_size_y[levely]);
+    tend  = ((int64_t) tileh) * ((int64_t) (tiley + 1));
+    if (tend > dend)
     {
-        int64_t sz = (int64_t) (part->data_window.y_max) -
-                     (int64_t) (part->data_window.y_min) + 1;
-        tileh = (int) (sz - ((int64_t) (tiley) * (int64_t) (tileh)));
+        tend -= dend;
+        if (tend < tileh) tileh = tileh - ((int) tend);
     }
 
     cidx = 0;
@@ -563,7 +638,14 @@ exr_read_tile_block_info (
     rv = extract_chunk_table (pctxt, part, &ctable);
     if (rv != EXR_ERR_SUCCESS) return rv;
 
-    if (pctxt->is_multipart && part->storage_mode != EXR_STORAGE_DEEP_TILED)
+    if (part->storage_mode == EXR_STORAGE_DEEP_TILED)
+    {
+        if (pctxt->is_multipart)
+            ntoread = 5;
+        else
+            ntoread = 4;
+    }
+    else if (pctxt->is_multipart)
         ntoread = 6;
     else
         ntoread = 5;
@@ -580,7 +662,7 @@ exr_read_tile_block_info (
     {
         return pctxt->print_error (
             pctxt,
-            EXR_ERR_BAD_CHUNK_DATA,
+            rv,
             "Request for tile (%d, %d), level (%d, %d) but unable to read %" PRId64
             " bytes from offset %" PRId64 ", got %" PRId64 " bytes",
             tilex,
@@ -600,8 +682,13 @@ exr_read_tile_block_info (
         {
             return pctxt->print_error (
                 pctxt,
-                EXR_ERR_BAD_CHUNK_DATA,
-                "Request for multi-part tile found bad part index (%d), expect %d",
+                EXR_ERR_BAD_CHUNK_LEADER,
+                "Preparing to read tile (%d, %d), level (%d, %d) (chunk %d), found corrupt leader: part says %d, expected %d",
+                tilex,
+                tiley,
+                levelx,
+                levely,
+                cidx,
                 data[0],
                 part_index);
         }
@@ -611,8 +698,13 @@ exr_read_tile_block_info (
     {
         return pctxt->print_error (
             pctxt,
-            EXR_ERR_BAD_CHUNK_DATA,
-            "Request for tile found tile x coord mismatch: found %d, expect %d",
+            EXR_ERR_BAD_CHUNK_LEADER,
+            "Preparing to read tile (%d, %d), level (%d, %d) (chunk %d), found corrupt leader: found tile x %d, expect %d",
+            tilex,
+            tiley,
+            levelx,
+            levely,
+            cidx,
             tdata[0],
             tilex);
     }
@@ -620,8 +712,13 @@ exr_read_tile_block_info (
     {
         return pctxt->print_error (
             pctxt,
-            EXR_ERR_BAD_CHUNK_DATA,
-            "Request for tile found tile y coord mismatch: found %d, expect %d",
+            EXR_ERR_BAD_CHUNK_LEADER,
+            "Preparing to read tile (%d, %d), level (%d, %d) (chunk %d), found corrupt leader: found tile y %d, expect %d",
+            tilex,
+            tiley,
+            levelx,
+            levely,
+            cidx,
             tdata[1],
             tiley);
     }
@@ -629,8 +726,13 @@ exr_read_tile_block_info (
     {
         return pctxt->print_error (
             pctxt,
-            EXR_ERR_BAD_CHUNK_DATA,
-            "Request for tile found tile level x mismatch: found %d, expect %d",
+            EXR_ERR_BAD_CHUNK_LEADER,
+            "Preparing to read tile (%d, %d), level (%d, %d) (chunk %d), found corrupt leader: found tile level x %d, expect %d",
+            tilex,
+            tiley,
+            levelx,
+            levely,
+            cidx,
             tdata[2],
             levelx);
     }
@@ -638,8 +740,13 @@ exr_read_tile_block_info (
     {
         return pctxt->print_error (
             pctxt,
-            EXR_ERR_BAD_CHUNK_DATA,
-            "Request for tile found tile level y mismatch: found %d, expect %d",
+            EXR_ERR_BAD_CHUNK_LEADER,
+            "Preparing to read tile (%d, %d), level (%d, %d) (chunk %d), found corrupt leader: found tile level y %d, expect %d",
+            tilex,
+            tiley,
+            levelx,
+            levely,
+            cidx,
             tdata[3],
             levely);
     }
@@ -662,12 +769,13 @@ exr_read_tile_block_info (
         {
             return pctxt->print_error (
                 pctxt,
-                EXR_ERR_BAD_CHUNK_DATA,
-                "Request for deep tile (%d, %d), level (%d, %d) invalid sample table size %" PRId64,
+                EXR_ERR_BAD_CHUNK_LEADER,
+                "Preparing to read deep tile (%d, %d), level (%d, %d) (chunk %d), found corrupt leader: invalid sample table size %" PRId64,
                 tilex,
                 tiley,
                 levelx,
                 levely,
+                cidx,
                 ddata[0]);
         }
 
@@ -676,49 +784,53 @@ exr_read_tile_block_info (
         {
             return pctxt->print_error (
                 pctxt,
-                EXR_ERR_BAD_CHUNK_DATA,
-                "Request for deep tile (%d, %d), level (%d, %d) invalid packed size %" PRId64,
+                EXR_ERR_BAD_CHUNK_LEADER,
+                "Preparing to read deep tile (%d, %d), level (%d, %d) (chunk %d), found corrupt leader: invalid packed data size %" PRId64,
                 tilex,
                 tiley,
                 levelx,
                 levely,
+                cidx,
                 ddata[1]);
         }
         if (ddata[2] < 0 || ddata[2] > (int64_t) INT32_MAX)
         {
             return pctxt->print_error (
                 pctxt,
-                EXR_ERR_BAD_CHUNK_DATA,
-                "Request for deep tile (%d, %d), level (%d, %d) invalid unpacked size %" PRId64,
+                EXR_ERR_BAD_CHUNK_LEADER,
+                "Preparing to read deep tile (%d, %d), level (%d, %d) (chunk %d), found corrupt leader: invalid packed data size %" PRId64,
                 tilex,
                 tiley,
                 levelx,
                 levely,
+                cidx,
                 ddata[1]);
         }
-        if (fsize > 0 && (ddata[0] > fsize || ddata[1] > fsize ||
-                          (ddata[0] + ddata[1]) > fsize))
-        {
-            return pctxt->print_error (
-                pctxt,
-                EXR_ERR_BAD_CHUNK_DATA,
-                "Request for deep tile (%d, %d), level (%d, %d) table (%" PRId64
-                ") and/or data (%" PRId64
-                ") size larger than file size %" PRId64,
-                tilex,
-                tiley,
-                levelx,
-                levely,
-                ddata[0],
-                ddata[1],
-                fsize);
-        }
-
         cinfo->sample_count_data_offset = dataoff;
         cinfo->sample_count_table_size  = (uint64_t) ddata[0];
         cinfo->packed_size              = (uint64_t) ddata[1];
         cinfo->unpacked_size            = (uint64_t) ddata[2];
         cinfo->data_offset              = dataoff + (uint64_t) ddata[0];
+
+        if (fsize > 0 &&
+            ((cinfo->sample_count_data_offset +
+              cinfo->sample_count_table_size) > ((uint64_t) fsize) ||
+             (cinfo->data_offset + cinfo->packed_size) > ((uint64_t) fsize)))
+        {
+            return pctxt->print_error (
+                pctxt,
+                EXR_ERR_BAD_CHUNK_LEADER,
+                "Preparing to read deep tile (%d, %d), level (%d, %d) (chunk %d), found corrupt leader: sample table and data result in access past end of the file: sample table size %" PRId64
+                " + data size %" PRId64 " larger than file %" PRId64,
+                tilex,
+                tiley,
+                levelx,
+                levely,
+                cidx,
+                ddata[0],
+                ddata[1],
+                fsize);
+        }
     }
     else
     {
@@ -727,14 +839,15 @@ exr_read_tile_block_info (
         {
             return pctxt->print_error (
                 pctxt,
-                EXR_ERR_BAD_CHUNK_DATA,
-                "Invalid data size found for tile (%d, %d) at level (%d, %d): %d unpack size %d file size %" PRId64,
+                EXR_ERR_BAD_CHUNK_LEADER,
+                "Preparing to read deep tile (%d, %d), level (%d, %d) (chunk %d), found corrupt leader: invalid packed size (%d) vs unpacked size (%d), and file size %" PRId64,
                 tilex,
                 tiley,
                 levelx,
                 levely,
-                tdata[4],
-                unpacksize,
+                cidx,
+                (int)tdata[4],
+                (int)unpacksize,
                 fsize);
         }
         cinfo->packed_size              = (uint64_t) tdata[4];
@@ -748,10 +861,10 @@ exr_read_tile_block_info (
 
 exr_result_t
 exr_read_chunk (
-    exr_const_context_t           ctxt,
-    int                           part_index,
-    const exr_chunk_block_info_t* cinfo,
-    void*                         packed_data)
+    exr_const_context_t     ctxt,
+    int                     part_index,
+    const exr_chunk_info_t* cinfo,
+    void*                   packed_data)
 {
     exr_result_t                 rv;
     uint64_t                     dataoffset, toread;
@@ -817,11 +930,11 @@ exr_read_chunk (
 
 exr_result_t
 exr_read_deep_chunk (
-    exr_const_context_t           ctxt,
-    int                           part_index,
-    const exr_chunk_block_info_t* cinfo,
-    void*                         packed_data,
-    void*                         sample_data)
+    exr_const_context_t     ctxt,
+    int                     part_index,
+    const exr_chunk_info_t* cinfo,
+    void*                   packed_data,
+    void*                   sample_data)
 {
     exr_result_t                 rv;
     uint64_t                     dataoffset, toread;
@@ -830,8 +943,6 @@ exr_read_deep_chunk (
     EXR_PROMOTE_READ_CONST_CONTEXT_AND_PART_OR_ERROR (ctxt, part_index);
 
     if (!cinfo) return pctxt->standard_error (pctxt, EXR_ERR_INVALID_ARGUMENT);
-    if (!packed_data && !sample_data)
-        return pctxt->standard_error (pctxt, EXR_ERR_INVALID_ARGUMENT);
 
     if (cinfo->idx < 0 || cinfo->idx >= part->chunk_count)
         return pctxt->print_error (
@@ -872,7 +983,7 @@ exr_read_deep_chunk (
             pctxt->file_size);
 
     rv = EXR_ERR_SUCCESS;
-    if (sample_data)
+    if (sample_data && cinfo->sample_count_table_size > 0)
     {
         dataoffset = cinfo->sample_count_data_offset;
         toread     = cinfo->sample_count_table_size;
@@ -931,7 +1042,7 @@ write_scan_chunk (
     }
 
     if (pctxt->cur_output_part != part_index)
-        return pctxt->standard_error (pctxt, EXR_ERR_PART_NOT_READY);
+        return pctxt->standard_error (pctxt, EXR_ERR_INCORRECT_PART);
 
     if (packed_size > 0 && !packed_data)
         return pctxt->print_error (
@@ -960,30 +1071,25 @@ write_scan_chunk (
             (uint64_t) sample_data_size,
             sample_data);
 
-    if (y < part->data_window.y_min || y > part->data_window.y_max)
+    if (y < part->data_window.min.y || y > part->data_window.max.y)
     {
         return pctxt->print_error (
             pctxt,
             EXR_ERR_INVALID_ARGUMENT,
             "Invalid attempt to write scanlines starting at %d outside range of data window (%d - %d)",
             y,
-            part->data_window.y_min,
-            part->data_window.y_max);
+            part->data_window.min.y,
+            part->data_window.max.y);
     }
 
     lpc  = part->lines_per_chunk;
-    cidx = (y - part->data_window.y_min);
+    cidx = (y - part->data_window.min.y);
     if (lpc > 1) cidx /= lpc;
 
-    if (part->lineorder == EXR_LINEORDER_DECREASING_Y)
-    {
-        cidx = part->chunk_count - (cidx + 1);
-        miny = part->data_window.y_max - (cidx + 1) * lpc;
-    }
-    else
-    {
-        miny = cidx * lpc + part->data_window.y_min;
-    }
+    //if (part->lineorder == EXR_LINEORDER_DECREASING_Y)
+    //    cidx = part->chunk_count - (cidx + 1);
+
+    miny = cidx * lpc + part->data_window.min.y;
 
     if (y != miny)
     {
@@ -1010,7 +1116,7 @@ write_scan_chunk (
     if (part->lineorder != EXR_LINEORDER_RANDOM_Y &&
         pctxt->last_output_chunk != (cidx - 1))
     {
-        return pctxt->standard_error (pctxt, EXR_ERR_CHUNK_NOT_READY);
+        return pctxt->standard_error (pctxt, EXR_ERR_INCORRECT_CHUNK);
     }
 
     if (pctxt->is_multipart)
@@ -1102,12 +1208,12 @@ write_scan_chunk (
 /**************************************/
 
 exr_result_t
-exr_write_scanline_block_info (
-    exr_context_t ctxt, int part_index, int y, exr_chunk_block_info_t* cinfo)
+exr_write_scanline_chunk_info (
+    exr_context_t ctxt, int part_index, int y, exr_chunk_info_t* cinfo)
 {
-    exr_attr_box2i_t       dw;
-    int                    lpc, miny, cidx;
-    exr_chunk_block_info_t nil = { 0 };
+    exr_attr_box2i_t dw;
+    int              lpc, miny, cidx;
+    exr_chunk_info_t nil = { 0 };
 
     EXR_PROMOTE_LOCKED_CONTEXT_AND_PART_OR_ERROR (ctxt, part_index);
 
@@ -1132,30 +1238,24 @@ exr_write_scanline_block_info (
     }
 
     dw = part->data_window;
-    if (y < dw.y_min || y > dw.y_max)
+    if (y < dw.min.y || y > dw.max.y)
     {
         return EXR_UNLOCK_AND_RETURN_PCTXT (pctxt->print_error (
             pctxt,
             EXR_ERR_INVALID_ARGUMENT,
             "Invalid request for scanline %d outside range of data window (%d - %d)",
             y,
-            dw.y_min,
-            dw.y_max));
+            dw.min.y,
+            dw.max.y));
     }
 
     lpc  = part->lines_per_chunk;
-    cidx = (y - dw.y_min);
+    cidx = (y - dw.min.y);
     if (lpc > 1) cidx /= lpc;
 
-    if (part->lineorder == EXR_LINEORDER_DECREASING_Y)
-    {
-        cidx = part->chunk_count - (cidx + 1);
-        miny = dw.y_max - (cidx + 1) * lpc;
-    }
-    else
-    {
-        miny = cidx * lpc + dw.y_min;
-    }
+    //if (part->lineorder == EXR_LINEORDER_DECREASING_Y)
+    //    cidx = part->chunk_count - (cidx + 1);
+    miny = cidx * lpc + dw.min.y;
 
     if (cidx < 0 || cidx >= part->chunk_count)
     {
@@ -1172,18 +1272,18 @@ exr_write_scanline_block_info (
     cinfo->idx         = cidx;
     cinfo->type        = (uint8_t) part->storage_mode;
     cinfo->compression = (uint8_t) part->comp_type;
-    cinfo->start_x     = dw.x_min;
+    cinfo->start_x     = dw.min.x;
     cinfo->start_y     = miny;
-    cinfo->width       = dw.x_max - dw.x_min + 1;
+    cinfo->width       = dw.max.x - dw.min.x + 1;
     cinfo->height      = lpc;
-    if (miny < dw.y_min)
+    if (miny < dw.min.y)
     {
-        cinfo->start_y = dw.y_min;
-        cinfo->height -= (dw.y_min - miny);
+        cinfo->start_y = dw.min.y;
+        cinfo->height -= (dw.min.y - miny);
     }
-    else if ((miny + lpc) > dw.y_max)
+    else if ((miny + lpc) > dw.max.y)
     {
-        cinfo->height = (dw.y_max - miny + 1);
+        cinfo->height = (dw.max.y - miny + 1);
     }
     cinfo->level_x = 0;
     cinfo->level_y = 0;
@@ -1200,14 +1300,14 @@ exr_write_scanline_block_info (
 /**************************************/
 
 exr_result_t
-exr_write_tile_block_info (
-    exr_context_t           ctxt,
-    int                     part_index,
-    int                     tilex,
-    int                     tiley,
-    int                     levelx,
-    int                     levely,
-    exr_chunk_block_info_t* cinfo)
+exr_write_tile_chunk_info (
+    exr_context_t     ctxt,
+    int               part_index,
+    int               tilex,
+    int               tiley,
+    int               levelx,
+    int               levely,
+    exr_chunk_info_t* cinfo)
 {
     exr_result_t               rv;
     int                        cidx;
@@ -1215,7 +1315,7 @@ exr_write_tile_block_info (
     const exr_attr_tiledesc_t* tiledesc;
     int                        tilew, tileh;
     uint64_t                   unpacksize = 0;
-    exr_chunk_block_info_t     nil        = { 0 };
+    exr_chunk_info_t           nil        = { 0 };
 
     EXR_PROMOTE_LOCKED_CONTEXT_AND_PART_OR_ERROR (ctxt, part_index);
 
@@ -1237,10 +1337,8 @@ exr_write_tile_block_info (
         part->num_tile_levels_y <= 0 || !part->tile_level_tile_count_x ||
         !part->tile_level_tile_count_y)
     {
-        return EXR_UNLOCK_AND_RETURN_PCTXT (pctxt->print_error (
-            pctxt,
-            EXR_ERR_BAD_CHUNK_DATA,
-            "Request for tile, but no tile data exists"));
+        return EXR_UNLOCK_WRITE_AND_RETURN_PCTXT (pctxt->report_error (
+            pctxt, EXR_ERR_MISSING_REQ_ATTR, "Tile data missing or corrupt"));
     }
 
     if (pctxt->mode != EXR_CONTEXT_WRITING_DATA)
@@ -1259,20 +1357,20 @@ exr_write_tile_block_info (
     if (tiledesc->y_size < (uint32_t) tileh) tileh = (int) tiledesc->y_size;
 
     if (((int64_t) (tilex) * (int64_t) (tilew) + (int64_t) (tilew) +
-         (int64_t) (part->data_window.x_min) - 1) >
-        (int64_t) (part->data_window.x_max))
+         (int64_t) (part->data_window.min.x) - 1) >
+        (int64_t) (part->data_window.max.x))
     {
-        int64_t sz = (int64_t) (part->data_window.x_max) -
-                     (int64_t) (part->data_window.x_min) + 1;
+        int64_t sz = (int64_t) (part->data_window.max.x) -
+                     (int64_t) (part->data_window.min.x) + 1;
         tilew = (int) (sz - ((int64_t) (tilex) * (int64_t) (tilew)));
     }
 
     if (((int64_t) (tiley) * (int64_t) (tileh) + (int64_t) (tileh) +
-         (int64_t) (part->data_window.y_min) - 1) >
-        (int64_t) (part->data_window.y_max))
+         (int64_t) (part->data_window.min.y) - 1) >
+        (int64_t) (part->data_window.max.y))
     {
-        int64_t sz = (int64_t) (part->data_window.y_max) -
-                     (int64_t) (part->data_window.y_min) + 1;
+        int64_t sz = (int64_t) (part->data_window.max.y) -
+                     (int64_t) (part->data_window.min.y) + 1;
         tileh = (int) (sz - ((int64_t) (tiley) * (int64_t) (tileh)));
     }
 
@@ -1411,7 +1509,7 @@ write_tile_chunk (
     }
 
     if (pctxt->cur_output_part != part_index)
-        return pctxt->standard_error (pctxt, EXR_ERR_PART_NOT_READY);
+        return pctxt->standard_error (pctxt, EXR_ERR_INCORRECT_PART);
 
     if (!packed_data || packed_size == 0)
         return pctxt->print_error (
@@ -1446,8 +1544,8 @@ write_tile_chunk (
     {
         return pctxt->print_error (
             pctxt,
-            EXR_ERR_BAD_CHUNK_DATA,
-            "Attempting to write tiled data, missing tile description");
+            EXR_ERR_MISSING_REQ_ATTR,
+            "Attempting to write tiled part, but tile data missing or corrupt");
     }
 
     cidx = -1;
@@ -1474,7 +1572,7 @@ write_tile_chunk (
     {
         return pctxt->print_error (
             pctxt,
-            EXR_ERR_CHUNK_NOT_READY,
+            EXR_ERR_INCORRECT_CHUNK,
             "Chunk index %d is not the next chunk to be written (last %d)",
             cidx,
             pctxt->last_output_chunk);
@@ -1637,7 +1735,7 @@ internal_validate_next_chunk (
     int          cidx, lpc;
 
     if (pctxt->cur_output_part != encode->part_index)
-        return pctxt->standard_error (pctxt, EXR_ERR_PART_NOT_READY);
+        return pctxt->standard_error (pctxt, EXR_ERR_INCORRECT_PART);
 
     cidx = -1;
 
@@ -1647,22 +1745,22 @@ internal_validate_next_chunk (
         rv = compute_tile_chunk_off (
             pctxt,
             part,
-            encode->chunk_block.start_x,
-            encode->chunk_block.start_y,
-            encode->chunk_block.level_x,
-            encode->chunk_block.level_y,
+            encode->chunk.start_x,
+            encode->chunk.start_y,
+            encode->chunk.level_x,
+            encode->chunk.level_y,
             &cidx);
     }
     else
     {
         lpc  = part->lines_per_chunk;
-        cidx = (encode->chunk_block.start_y - part->data_window.y_min);
+        cidx = (encode->chunk.start_y - part->data_window.min.y);
         if (lpc > 1) cidx /= lpc;
 
-        if (part->lineorder == EXR_LINEORDER_DECREASING_Y)
-        {
-            cidx = part->chunk_count - (cidx + 1);
-        }
+        //if (part->lineorder == EXR_LINEORDER_DECREASING_Y)
+        //{
+        //    cidx = part->chunk_count - (cidx + 1);
+        //}
     }
 
     if (rv == EXR_ERR_SUCCESS)
@@ -1673,7 +1771,7 @@ internal_validate_next_chunk (
                 pctxt,
                 EXR_ERR_INVALID_ARGUMENT,
                 "Chunk index for scanline %d in chunk %d outside chunk count %d",
-                encode->chunk_block.start_y,
+                encode->chunk.start_y,
                 cidx,
                 part->chunk_count);
         }
@@ -1683,7 +1781,7 @@ internal_validate_next_chunk (
         {
             rv = pctxt->print_error (
                 pctxt,
-                EXR_ERR_CHUNK_NOT_READY,
+                EXR_ERR_INCORRECT_CHUNK,
                 "Attempt to write chunk %d, but last output chunk is %d",
                 cidx,
                 pctxt->last_output_chunk);

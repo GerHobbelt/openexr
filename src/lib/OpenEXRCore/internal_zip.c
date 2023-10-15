@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <zlib.h>
+
 #if defined __SSE2__ || (_MSC_VER >= 1300 && !_M_CEE_PURE)
 #    define IMF_HAVE_SSE2 1
 #    include <emmintrin.h>
@@ -168,13 +169,20 @@ undo_zip_impl (
         (uLong) comp_buf_size);
     if (rstat == Z_OK)
     {
-        reconstruct (scratch_data, outSize);
-        interleave (uncompressed_data, scratch_data, outSize);
-        rstat = EXR_ERR_SUCCESS;
+        if (outSize == uncompressed_size)
+        {
+            reconstruct (scratch_data, outSize);
+            interleave (uncompressed_data, scratch_data, outSize);
+            rstat = EXR_ERR_SUCCESS;
+        }
+        else
+        {
+            rstat = EXR_ERR_CORRUPT_CHUNK;
+        }
     }
     else
     {
-        rstat = EXR_ERR_BAD_CHUNK_DATA;
+        rstat = EXR_ERR_CORRUPT_CHUNK;
     }
 
     return (exr_result_t) rstat;
@@ -245,7 +253,7 @@ apply_zip_impl (exr_encode_pipeline_t* encode)
                     (const Bytef*) encode->scratch_buffer_1,
                     encode->packed_bytes))
     {
-        return EXR_ERR_BAD_CHUNK_DATA;
+        return EXR_ERR_CORRUPT_CHUNK;
     }
     if (compbufsz > encode->packed_bytes)
     {
