@@ -40,13 +40,13 @@
 //
 //-----------------------------------------------------------------------------
 
-#include "IlmBaseConfig.h"
+#include "IlmThreadConfig.h"
 #include "IlmThread.h"
 #include "Iex.h"
 
 ILMTHREAD_INTERNAL_NAMESPACE_SOURCE_ENTER
 
-#if ILMBASE_THREADING_ENABLED
+#if ILMTHREAD_THREADING_ENABLED
 
 bool
 supportsThreads ()
@@ -74,6 +74,12 @@ Thread::join()
 {
     if ( _thread.joinable () )
         _thread.join ();
+}
+
+bool
+Thread::joinable() const
+{
+    return _thread.joinable();
 }
 
 void
@@ -111,6 +117,12 @@ Thread::start ()
 
 void
 Thread::join ()
+{
+    throw IEX_NAMESPACE::NoImplExc ("Threads not supported / enabled on this platform.");
+}
+
+bool
+Thread::joinable () const
 {
     throw IEX_NAMESPACE::NoImplExc ("Threads not supported / enabled on this platform.");
 }

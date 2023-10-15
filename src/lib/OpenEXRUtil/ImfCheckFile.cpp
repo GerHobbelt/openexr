@@ -31,12 +31,43 @@ using Imath::Box2i;
 //
 // limits for reduceMemory mode
 //
-const int gMaxScanlineWidth= 1000000;
-const int gMaxTilePixelsPerScanline = 8000000;
-const int gMaxTileSize = 1000*1000;
-const int gMaxSamplesPerDeepPixel = 1000;
-const int gMaxSamplesPerScanline = 1<<12;
+const Int64 gMaxScanlineWidth= 1000000;
+const Int64 gMaxTilePixelsPerScanline = 8000000;
+const Int64 gMaxTileSize = 1000*1000;
+const Int64 gMaxSamplesPerDeepPixel = 1000;
+const Int64 gMaxSamplesPerScanline = 1<<12;
 
+//
+// limits for reduceTime mode
+//
+const int gTargetPixelsToRead = 1<<28;
+const int gMaxScanlinesToRead = 1<<20;
+
+
+
+
+//
+// compute row stride appropriate to process files quickly
+// only used for the 'Rgba' interfaces, which read potentially non-existant channels
+//
+//
+
+int
+getStep( const Box2i &dw , bool reduceTime)
+{
+
+    if (reduceTime)
+    {
+        size_t rowCount = (dw.max.y - dw.min.y + 1);
+        size_t pixelCount = rowCount * (dw.max.x - dw.min.x + 1);
+        return  max( 1 , max ( static_cast<int>(pixelCount / gTargetPixelsToRead) , static_cast<int>(rowCount / gMaxScanlinesToRead) ) );
+    }
+    else
+    {
+        return 1;
+    }
+
+}
 //
 // read image or part using the Rgba interface
 //
@@ -59,9 +90,10 @@ readRgba(T& in, bool reduceMemory , bool reduceTime)
         }
 
         Array<Rgba> pixels (w);
-        in.setFrameBuffer (&pixels[-dx], 1, 0);
+        intptr_t base = reinterpret_cast<intptr_t>(&pixels[0]);
+        in.setFrameBuffer (reinterpret_cast<Rgba*>(base - dx*sizeof(Rgba)), 1, 0);
 
-        int step = 1;
+        int step = getStep( dw , reduceTime );
 
         //
         // try reading scanlines. Continue reading scanlines
@@ -123,17 +155,21 @@ readScanline(T& in, bool reduceMemory , bool reduceTime)
         vector<float> floatChannels(w);
         vector<unsigned int> uintChannels(w);
 
+        intptr_t halfData = reinterpret_cast<intptr_t>(halfChannels.data());
+        intptr_t floatData = reinterpret_cast<intptr_t>(floatChannels.data());
+        intptr_t uintData = reinterpret_cast<intptr_t>(uintChannels.data());
+
         int channelIndex = 0;
         const ChannelList& channelList = in.header().channels();
         for (ChannelList::ConstIterator c = channelList.begin() ; c != channelList.end() ; ++c )
         {
             switch (channelIndex % 3)
             {
-                case 0 : i.insert(c.name(),Slice(HALF, (char*)&halfChannels[-dx/c.channel().xSampling ] , sizeof(half) , 0 , c.channel().xSampling , c.channel().ySampling ));
+                case 0 : i.insert(c.name(),Slice(HALF, (char*) (halfData - sizeof(half)*(dx/c.channel().xSampling))  , sizeof(half) , 0 , c.channel().xSampling , c.channel().ySampling ));
                 break;
-                case 1 : i.insert(c.name(),Slice(FLOAT, (char*)&floatChannels[-dx/c.channel().xSampling ] , sizeof(float) , 0 , c.channel().xSampling , c.channel().ySampling ));
+                case 1 : i.insert(c.name(),Slice(FLOAT, (char*) (floatData - sizeof(float)*(dx/c.channel().xSampling))  , sizeof(float) , 0 , c.channel().xSampling , c.channel().ySampling ));
                 break;
-                case 2 : i.insert(c.name(),Slice(UINT, (char*)&uintChannels[-dx/c.channel().xSampling ] , sizeof(unsigned int) , 0 , c.channel().xSampling , c.channel().ySampling ));
+                case 2 : i.insert(c.name(),Slice(UINT, (char*) (uintData - sizeof(unsigned int)*(dx/c.channel().xSampling))  , sizeof(unsigned int) , 0 , c.channel().xSampling , c.channel().ySampling ));
                 break;
             }
             channelIndex ++;
@@ -412,7 +448,7 @@ bool readDeepScanLine(T& in,bool reduceMemory, bool reduceTime)
                     for (int k = 0; k < channelCount; k++)
                     {
 
-                        if (reduceMemory && localSampleCount[j] > gMaxSamplesPerDeepPixel )
+                        if (localSampleCount[j]==0 || ( reduceMemory && localSampleCount[j] > gMaxSamplesPerDeepPixel ) )
                         {
                             data[k][j] = nullptr;
                         }
@@ -466,8 +502,11 @@ readDeepTile(T& in,bool reduceMemory , bool reduceTime)
 
         Box2i dataWindow = fileHeader.dataWindow();
 
-        int height = dataWindow.size().y+1;
-        int width = dataWindow.size().x+1;
+        //
+        // use Int64 for dimensions, since dataWindow+1 could overflow int storage
+        //
+        Int64 height = static_cast<Int64>(dataWindow.size().y)+1;
+        Int64 width = static_cast<Int64>(dataWindow.size().x)+1;
 
         const TileDescription& td = in.header().tileDescription();
         int tileWidth = td.xSize;
@@ -490,9 +529,20 @@ readDeepTile(T& in,bool reduceMemory , bool reduceTime)
 
         DeepFrameBuffer frameBuffer;
 
-        int memOffset = dataWindow.min.x + dataWindow.min.y * width;
+        //
+        // memOffset is difference in bytes between theoretical address of pixel (0,0) and the origin of the data window
+        //
+        Int64 memOffset = sizeof(unsigned int) * (static_cast<Int64>(dataWindow.min.x) + static_cast<Int64>(dataWindow.min.y) * width);
+
+        //
+        // Use integer arithmetic instead of pointer arithmetic to compute offset into array.
+        // if memOffset is larger than base, then the computed pointer is negative, which is reported as undefined behavior
+        // Instead, integers are used for computation which behaves as expected an all known architectures
+        //
+
+        intptr_t base = reinterpret_cast<intptr_t>(&localSampleCount[0][0] );
         frameBuffer.insertSampleCountSlice (Slice (UINT,
-                                                   (char *) (&localSampleCount[0][0] - memOffset),
+                                                   reinterpret_cast<char*> (base - memOffset),
                                                    sizeof (unsigned int) * 1,
                                                    sizeof (unsigned int) * width,
                                                    0.0, // fill
@@ -508,10 +558,11 @@ readDeepTile(T& in,bool reduceMemory , bool reduceTime)
              int sampleSize  = sizeof (float);
 
              int pointerSize = sizeof (char *);
+             intptr_t base = reinterpret_cast<intptr_t>(&data[channel][0][0]);
 
              frameBuffer.insert (i.name(),
                                  DeepSlice (FLOAT,
-                                            (char *) (&data[channel][0][0] - memOffset),
+                                            reinterpret_cast<char*> (base- memOffset),
                                             pointerSize * 1,
                                             pointerSize * width,
                                             sampleSize,
@@ -685,7 +736,9 @@ readMultiPart(MultiPartInputFile& in,bool reduceMemory,bool reduceTime)
        }
 
         bool widePart = false;
+        bool largeTiles = false;
         Box2i b = in.header( part ).dataWindow();
+        Int64 imageWidth = static_cast<Int64>(b.max.x) - static_cast<Int64>(b.min.x) + 1ll;
 
          //
          // very wide scanline parts take excessive memory to read.
@@ -693,7 +746,7 @@ readMultiPart(MultiPartInputFile& in,bool reduceMemory,bool reduceTime)
          //
 
 
-        if (b.max.x - b.min.x > gMaxScanlineWidth )
+        if ( imageWidth > gMaxScanlineWidth )
         {
             widePart = true;
 
@@ -705,9 +758,18 @@ readMultiPart(MultiPartInputFile& in,bool reduceMemory,bool reduceTime)
         //
         if (isTiled(in.header( part ).type()))
         {
-            if ( in.header( part ).tileDescription().ySize *  (b.max.x-b.min.x+1) > gMaxTilePixelsPerScanline )
+            const TileDescription& tileDescription = in.header( part ).tileDescription();
+
+            Int64 tilesPerScanline = ( imageWidth + tileDescription.xSize - 1ll) / tileDescription.xSize;
+            Int64 tileSize = static_cast<Int64>(tileDescription.xSize) * static_cast<Int64>(tileDescription.ySize);
+
+            if ( tileSize * tilesPerScanline > gMaxTilePixelsPerScanline )
             {
                 widePart = true;
+            }
+            if( tileSize > gMaxTileSize)
+            {
+                 largeTiles = true;
             }
         }
 
@@ -731,7 +793,8 @@ readMultiPart(MultiPartInputFile& in,bool reduceMemory,bool reduceTime)
             }
        }
 
-       {
+        if (!reduceMemory || !largeTiles)
+        {
             bool gotThrow = false;
 
             try
@@ -773,6 +836,7 @@ readMultiPart(MultiPartInputFile& in,bool reduceMemory,bool reduceTime)
             }
        }
 
+       if (!reduceMemory || !largeTiles)
        {
             bool gotThrow = false;
 
@@ -901,36 +965,64 @@ runChecks(T& source,bool reduceMemory,bool reduceTime)
     //
 
     string firstPartType;
-    bool firstPartWide = false;
+
+
+    //
+    // scanline images with very wide parts and tiled images with large tiles
+    // take excessive memory to read.
+    // Assume the first part requires excessive memory until the header of the first part is checked
+    // so the single part input APIs can be skipped.
+    //
+    // If the MultiPartInputFile constructor throws an exception, the first part
+    // will assumed to be a wide image
+    //
+    bool firstPartWide = true;
+    bool largeTiles = true;
 
     bool threw = false;
     {
       try
       {
          MultiPartInputFile multi(source);
-         firstPartType = multi.header(0).type();
          Box2i b = multi.header(0).dataWindow();
+         Int64 imageWidth = static_cast<Int64>(b.max.x) - static_cast<Int64>(b.min.x) + 1ll;
 
-         //
-         // scanline images with very wide parts take excessive memory to read
-         // detect that here so that tests can be skipped when reduceMemory is set
-         //
-         if (b.max.x - b.min.x > gMaxScanlineWidth )
+         // confirm first part is small enough to read without using excessive memory
+         if ( imageWidth <= gMaxScanlineWidth )
          {
-             firstPartWide = true;
+             firstPartWide = false;
          }
+
+
          //
          // significant memory is also required to read a tiled file
          // using the scanline interface with tall tiles - the scanlineAPI
          // needs to allocate memory to store an entire row of tiles
          //
 
+         firstPartType = multi.header(0).type();
          if (isTiled(firstPartType))
          {
-             if ( multi.header(0).tileDescription().ySize *  (b.max.x-b.min.x+1) > gMaxTilePixelsPerScanline )
+             const TileDescription& tileDescription = multi.header(0).tileDescription();
+             Int64 tilesPerScanline = ( imageWidth + tileDescription.xSize - 1ll) / tileDescription.xSize;
+             Int64 tileSize = static_cast<Int64>(tileDescription.xSize) * static_cast<Int64>(tileDescription.ySize);
+             if ( tileSize * tilesPerScanline > gMaxTilePixelsPerScanline )
              {
                  firstPartWide = true;
              }
+
+             if( tileDescription.ySize * tileDescription.xSize <= gMaxTileSize)
+             {
+                 largeTiles = false;
+             }
+
+         }
+         else
+         {
+             // file is not tiled, so can't contain large tiles
+             // setting largeTiles false here causes the Tile and DeepTile API
+             // tests to run on non-tiled files, which should cause exceptions to be thrown
+             largeTiles = false;
          }
 
 
@@ -982,6 +1074,7 @@ runChecks(T& source,bool reduceMemory,bool reduceTime)
         }
     }
 
+    if( !reduceMemory || !largeTiles )
     {
         bool gotThrow = false;
         resetInput(source);
@@ -1019,6 +1112,7 @@ runChecks(T& source,bool reduceMemory,bool reduceTime)
         }
     }
 
+    if( !reduceMemory || !largeTiles )
     {
         bool gotThrow = false;
         resetInput(source);

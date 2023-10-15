@@ -68,7 +68,8 @@
 #include <ImfTimeCodeAttribute.h>
 #include <ImfVecAttribute.h>
 #include <ImfPartType.h>
-#include <IlmBaseConfig.h>
+#include <ImfIDManifestAttribute.h>
+#include <IlmThreadConfig.h>
 #include "Iex.h"
 #include <sstream>
 #include <stdlib.h>
@@ -78,7 +79,7 @@
 #include "ImfTiledMisc.h"
 #include "ImfNamespace.h"
 
-#if ILMBASE_THREADING_ENABLED
+#if ILMTHREAD_THREADING_ENABLED
 #include <mutex>
 #endif
 
@@ -998,7 +999,15 @@ Header::sanityCheck (bool isTiled, bool isMultipartFile) const
     // x and y subsampling factors.
     //
 
+
+
+
     const ChannelList &channels = this->channels();
+
+    if (channels.begin()==channels.end())
+    {
+        THROW (IEX_NAMESPACE::ArgExc, "Missing or empty channel list in header");
+    }
     
     if (isTiled || isDeep)
     {
@@ -1271,7 +1280,7 @@ Header::readFrom (OPENEXR_IMF_INTERNAL_NAMESPACE::IStream &is, int &version)
 void
 staticInitialize ()
 {
-#if ILMBASE_THREADING_ENABLED
+#if ILMTHREAD_THREADING_ENABLED
     static std::mutex criticalSection;
 	std::lock_guard<std::mutex> lock (criticalSection);
 #endif
@@ -1314,6 +1323,8 @@ staticInitialize ()
 	V3fAttribute::registerAttributeType();
 	V3iAttribute::registerAttributeType();
 	DwaCompressor::initializeFuncs();
+    IDManifestAttribute::registerAttributeType();
+
 
 	initialized = true;
     }

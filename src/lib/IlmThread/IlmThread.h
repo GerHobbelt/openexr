@@ -90,11 +90,11 @@
 //
 //-----------------------------------------------------------------------------
 
-#include "IlmBaseConfig.h"
+#include "IlmThreadConfig.h"
 #include "IlmThreadExport.h"
 #include "IlmThreadNamespace.h"
 
-#if ILMBASE_THREADING_ENABLED
+#if ILMTHREAD_THREADING_ENABLED
 #include <thread>
 #endif
 
@@ -122,10 +122,11 @@ class Thread
     // wait for thread to exit - must be called before deleting thread
     //
     void join();
+    bool joinable() const;
 
   private:
 
-#if ILMBASE_THREADING_ENABLED
+#if ILMTHREAD_THREADING_ENABLED
     std::thread _thread;
 #endif
 
