@@ -13,19 +13,35 @@ Install
 The OpenEXR library is available for download and installation in
 binary form via package managers on many Linux distributions. See
 `https://pkgs.org/download/openexr
-<https://pkgs.org/download/openexr>`_ for a complete list. The common
-ones that generally provide current releases include:
+<https://pkgs.org/download/openexr>`_ for a complete list. 
 
-* `Fedora <https://packages.fedoraproject.org/pkgs/openexr/openexr/>`_
-* `Gentoo <https://packages.gentoo.org/packages/media-libs/openexr>`_ 
-* `Ubuntu <https://packages.ubuntu.com/source/kinetic/openexr>`_
+RHEL/CentOS:
+
+.. code-block::
+
+    $ sudo yum makecache
+    $ sudo yum install OpenEXR
+
+Ubuntu:
+
+.. code-block::
+
+    $ sudo apt-get update
+    $ sudo apt-get install openexr
 
 Beware that some distributions are out of date and only provide
 distributions of outdated releases OpenEXR. We recommend against using
 OpenEXR v2, and we *strongly* recommend against using OpenEXR v1.
 
-On macOS, we do not recommend installation via HomeBrew because the
-distribution is outdated.
+On macOS, install via `Homebrew <https://formulae.brew.sh/formula/openexr>`_:
+
+.. code-block::
+
+   $ brew install openexr
+
+We do not recommend installation via
+`Macports <https://ports.macports.org/port/openexr>`_ because the
+distribution is out of date.
 
 Also note that the official OpenEXR project does not provide supported
 python bindings. ``pip install openexr`` installs the `openexrpython
@@ -54,8 +70,8 @@ Make sure these are installed on your system before building OpenEXR:
 
 * OpenEXR requires CMake version 3.12 or newer
 * C++ compiler that supports C++11
-* zlib 
-* Imath (auto fetched by CMake if not found)
+* Imath (auto fetched by CMake if not found) (https://github.com/AcademySoftwareFoundation/openexr)
+* libdeflate source code (auto fetched by CMake if not found) (https://github.com/ebiggers/libdeflate)
 
 The instructions that follow describe building OpenEXR with CMake.
 
@@ -204,6 +220,30 @@ Building the documentation requires that ``sphinx``, ``breathe``, and
 `requirements.txt
 <https://github.com/AcademySoftwareFoundation/openexr/blob/main/docs/requirements.txt>`_
 file.
+
+See the `doxygen downloads page
+<https://www.doxygen.nl/download.html>`_ for how to install it. Binary
+distributions are available for many systems, so you likely do not
+need to build from source. On Debian/Ubuntu, for example:
+
+.. code-block::
+
+   $ sudo apt-get install doxygen
+
+Similarly, see the `sphinx installation page
+<https://www.sphinx-doc.org/en/master/usage/installation.html>`_ for
+how to install it. On Debian/Ubuntu:
+
+.. code-block::
+
+   $ sudo apt-get install python3-sphinx
+
+And to install `sphinx-press-theme
+<https://pypi.org/project/sphinx-press-theme>`_:
+
+.. code-block::
+
+   $ pip3 install sphinx_press_theme
 
 Note that the `https://openexr.readthedocs.io <https://openexr.readthedocs.io>`_
 documentation takes the place of the formerly distributed .pdf

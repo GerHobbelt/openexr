@@ -37,7 +37,7 @@ half_to_float8 (float* out, const uint16_t* src)
 }
 #endif
 
-#if (defined(__x86_64__) || defined(_M_X64)) &&                                \
+#if (defined(__x86_64__) || defined(_M_X64)) && defined(__AVX__) &&                              \
     (defined(__F16C__) || defined(__GNUC__) || defined(__clang__))
 
 #    if defined(__F16C__)
@@ -397,14 +397,10 @@ unpack_16bit_3chan_planar (exr_decode_pipeline_t* decode)
     const uint16_t *in0, *in1, *in2;
     uint8_t *       out0, *out1, *out2;
     int             w, h;
-    int             inc0, inc1, inc2;
     int             linc0, linc1, linc2;
 
     w     = decode->channels[0].width;
     h     = decode->chunk.height;
-    inc0  = decode->channels[0].user_pixel_stride;
-    inc1  = decode->channels[1].user_pixel_stride;
-    inc2  = decode->channels[2].user_pixel_stride;
     linc0 = decode->channels[0].user_line_stride;
     linc1 = decode->channels[1].user_line_stride;
     linc2 = decode->channels[2].user_line_stride;
@@ -451,14 +447,10 @@ unpack_half_to_float_3chan_planar (exr_decode_pipeline_t* decode)
     const uint16_t *in0, *in1, *in2;
     uint8_t *       out0, *out1, *out2;
     int             w, h;
-    int             inc0, inc1, inc2;
     int             linc0, linc1, linc2;
 
     w     = decode->channels[0].width;
     h     = decode->chunk.height;
-    inc0  = decode->channels[0].user_pixel_stride;
-    inc1  = decode->channels[1].user_pixel_stride;
-    inc2  = decode->channels[2].user_pixel_stride;
     linc0 = decode->channels[0].user_line_stride;
     linc1 = decode->channels[1].user_line_stride;
     linc2 = decode->channels[2].user_line_stride;

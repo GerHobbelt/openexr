@@ -11,31 +11,27 @@ def openexr_deps():
 
     maybe(
         http_archive,
-        name = "net_zlib_zlib",
-        build_file = "@com_openexr//:bazel/third_party/zlib.BUILD",
-        sha256 = "b3a24de97a8fdbc835b9833169501030b8977031bcb54b3b3ac13740f846ab30",
-        strip_prefix = "zlib-1.2.13",
-        urls = [
-            "https://mirror.bazel.build/zlib.net/zlib-1.2.13.tar.gz",
-            "https://zlib.net/zlib-1.2.13.tar.gz",
-        ],
+        name = "libdeflate",
+        build_file = "@com_openexr//:bazel/third_party/libdeflate.BUILD",
+        sha256 = "225d982bcaf553221c76726358d2ea139bb34913180b20823c782cede060affd",
+        strip_prefix = "libdeflate-1.18",
+        urls = ["https://github.com/ebiggers/libdeflate/archive/refs/tags/v1.18.tar.gz"],
     )
 
     maybe(
         http_archive,
         name = "Imath",
         build_file = "@com_openexr//:bazel/third_party/Imath.BUILD",
-        strip_prefix = "Imath-3.1.6",
-        sha256 = "ea5592230f5ab917bea3ceab266cf38eb4aa4a523078d46eac0f5a89c52304db",
-        urls = ["https://github.com/AcademySoftwareFoundation/Imath/archive/refs/tags/v3.1.6.tar.gz"],
+        strip_prefix = "Imath-3.1.7",
+        sha256 = "bff1fa140f4af0e7f02c6cb78d41b9a7d5508e6bcdfda3a583e35460eb6d4b47",
+        urls = ["https://github.com/AcademySoftwareFoundation/Imath/archive/refs/tags/v3.1.7.tar.gz"],
     )
 
-    maybe(
-        http_archive,
+    http_archive(
         name = "bazel_skylib",
+        sha256 = "b8a1527901774180afc798aeb28c4634bdccf19c4d98e7bdd1ce79d1fe9aaad7",
         urls = [
-            "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.3.0/bazel-skylib-1.3.0.tar.gz",
-            "https://github.com/bazelbuild/bazel-skylib/releases/download/1.3.0/bazel-skylib-1.3.0.tar.gz",
+            "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.4.1/bazel-skylib-1.4.1.tar.gz",
+            "https://github.com/bazelbuild/bazel-skylib/releases/download/1.4.1/bazel-skylib-1.4.1.tar.gz",
         ],
-        sha256 = "74d544d96f4a5bb630d465ca8bbcfe231e3594e5aae57e1edbf17a6eb3ca2506",
     )
