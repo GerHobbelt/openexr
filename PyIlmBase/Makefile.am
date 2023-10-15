@@ -4,7 +4,7 @@
 # (an alternative to the acinclude.m4 mechanism)
 ACLOCAL_AMFLAGS = -I m4
 
-PYIMATH_SUBDIRS = config PyIex PyImath PyIexTest  PyImathTest
+PYIMATH_SUBDIRS = config PyIex PyImath PyIexTest  PyImathTest PyImathNumpyTest
 PYIMATHNUMPY_SUBDIRS = PyImathNumpy
 
 if BUILD_PYIMATHNUMPY
@@ -15,15 +15,18 @@ SUBDIRS = $(PYIMATH_SUBDIRS) $(MAYBE_PYIMATHNUMPY_SUBDIRS)
 
 DIST_SUBDIRS = \
 	$(PYIMATH_SUBDIRS) \
-	$(PYIMATHNUMPY_SUBDIRS) \
-	#vc
+	$(PYIMATHNUMPY_SUBDIRS)
 
 EXTRA_DIST = \
 	LICENSE README.md \
 	ChangeLog \
-        bootstrap \
+	bootstrap \
 	pyilmbase.m4 \
 	config.windows/PyIlmBaseConfig.h
+
+dist-hook:
+	cp -fpR $(abspath $(srcdir)/..)/cmake $(distdir)
+	find $(distdir)/cmake -type d ! -perm -700 -exec chmod u+rwx {} \;
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = PyIlmBase.pc
