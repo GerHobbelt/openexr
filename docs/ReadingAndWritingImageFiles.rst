@@ -9,14 +9,14 @@ This document shows how to write C++ code that reads and writes OpenEXR
 
 The text assumes that the reader is familiar with OpenEXR terms like
 “channel”, “attribute”, “data window” or “deep data”. For an explanation
-of those terms see the `Technical Introduction to OpenEXR`_ document.
+of those terms see the :doc:`TechnicalIntroduction` document.
 
 The OpenEXR source distribution contains a subdirectory, OpenEXRExamples,
 with most of the code examples below. A Makefile is also provided, so
 that the examples can easily be compiled and run.
 
-A description of the file structure and format is provided in `OpenEXR
-File Layout`_.
+A description of the file structure and format is provided in
+:doc:`OpenEXRFileLayout`.
 
 Scan Line Based and Tiled OpenEXR files
 =======================================
@@ -67,8 +67,8 @@ worrying about complications related to tiling and multiple resolutions.
 When a multi-resolution file is read via a scan line interface, only the
 highest-resolution version of the image is accessible.
 
-Multi-Part and Deep Data (New in 2.0)
--------------------------------------
+Multi-Part and Deep Data
+------------------------
 
 The procedure for writing multi-part and deep data files is similar to
 writing scan line and tile. Though there is no simplified interface,
@@ -129,7 +129,7 @@ to ``(0,0) - (width-1, height-1)``. The channel list contains four channels,
 
 Line 5 specifies how the pixel data are laid out in memory. In our
 example, the ``pixels`` pointer is assumed to point to the beginning of an
-array of ``width``height* pixels. The pixels are represented as ``Rgba``
+array of ``width*height`` pixels. The pixels are represented as ``Rgba``
 structs, which are defined like this:
 
 .. code-block::
@@ -313,7 +313,7 @@ Reading an RGBA Image File
 
 Reading an RGBA image is almost as easy as writing one:
 
-.. literalinclude:: src/writeRgba1.cpp
+.. literalinclude:: src/readRgba1.cpp
    :language: c++
    :linenos:
                     
@@ -377,7 +377,7 @@ incrementally this way. With clever buffering of a few extra scan lines,
 incremental versions of operations that require access to neighboring
 pixels, like blurring or sharpening, are also possible.
 
-.. literalinclude:: src/writeRgba2.cpp
+.. literalinclude:: src/readRgba2.cpp
    :language: c++
    :linenos:
 
@@ -1101,8 +1101,8 @@ or by calling a six-argument version of ``readTiles()``:
 
     in.readTiles (tileXMin, tileXMax, tileYMin, tileYMax, levelX, levelY);
 
-Deep Data Files (New in 2.0)
-============================
+Deep Data Files
+===============
 
 Writing a Deep Scan Line File
 -----------------------------

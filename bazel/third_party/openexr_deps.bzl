@@ -22,14 +22,14 @@ def openexr_deps():
     )
 
     # sha256 was determined using:
-    # curl -sL https://github.com/AcademySoftwareFoundation/Imath/archive/refs/tags/v3.1.0.tar.gz --output Imath-3.1.0.tar.gz
-    # sha256sum Imath-3.1.0.tar.gz
+    # curl -sL https://github.com/AcademySoftwareFoundation/Imath/archive/refs/tags/v3.1.2.tar.gz --output Imath-3.1.2.tar.gz
+    # sha256sum Imath-3.1.2.tar.gz
     # If the hash is incorrect Bazel will report an error and show the actual hash of the file.
     maybe(
         http_archive,
         name = "Imath",
         build_file = "@openexr//:bazel/third_party/Imath.BUILD",
-        strip_prefix = "Imath-3.1.0",
-        sha256 = "211c907ab26d10bd01e446da42f073ee7381e1913d8fa48084444bc4e1b4ef87",
-        urls = ["https://github.com/AcademySoftwareFoundation/Imath/archive/refs/tags/v3.1.0.tar.gz"],
+        strip_prefix = "Imath-3.1.2",
+        sha256 = "f21350efdcc763e23bffd4ded9bbf822e630c15ece6b0697e2fcb42737c08c2d",
+        urls = ["https://github.com/AcademySoftwareFoundation/Imath/archive/refs/tags/v3.1.2.tar.gz"],
     )

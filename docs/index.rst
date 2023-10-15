@@ -1,8 +1,5 @@
-.. Imath documentation master file, created by
-   sphinx-quickstart on Wed Apr 24 15:19:01 2019.
-
-OpenEXR Technical Documentation
-===============================
+OpenEXR |version| Technical Documentation
+=========================================
 
 .. sidebar:: OpenEXR
 
@@ -59,7 +56,9 @@ Technical Documents
    OpenEXRFileLayout
    MultiViewOpenEXR
    InterpretingDeepPixels
-
+   TheoryDeepPixels
+   StandardOptionalAttributes
+              
 * :ref:`genindex`
 
 Resources
@@ -83,5 +82,4 @@ individuals have made contributions to the code base.
 
 OpenEXR is included in the `VFX Reference Platform <https://vfxplatform.com>`_.
 
-
-
+                  
