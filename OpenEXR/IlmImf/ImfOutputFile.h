@@ -258,7 +258,9 @@ class OutputFile : public GenericOutputFile
     OutputFile (const OutputPartData* part);
 
     OutputFile (const OutputFile &) = delete;
-    const OutputFile & operator = (const OutputFile &) = delete;
+    OutputFile & operator = (const OutputFile &) = delete;
+    OutputFile (OutputFile &&) = delete;
+    OutputFile & operator = (OutputFile &&) = delete;
 
     void		initialize (const Header &header);
 

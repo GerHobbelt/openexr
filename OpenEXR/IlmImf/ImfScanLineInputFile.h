@@ -76,7 +76,9 @@ class ScanLineInputFile : public GenericInputFile
     virtual ~ScanLineInputFile ();
 
     ScanLineInputFile (const ScanLineInputFile& other) = delete;
-    const ScanLineInputFile& operator = (const ScanLineInputFile& other) = delete;
+    ScanLineInputFile& operator = (const ScanLineInputFile& other) = delete;
+    ScanLineInputFile (ScanLineInputFile&& other) = delete;
+    ScanLineInputFile& operator = (ScanLineInputFile&& other) = delete;
 
 
     //------------------------
