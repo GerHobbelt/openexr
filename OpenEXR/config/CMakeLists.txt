@@ -85,8 +85,8 @@ install(
 install(TARGETS IlmImfConfig EXPORT ${PROJECT_NAME})
 add_library(${PROJECT_NAME}::Config ALIAS IlmImfConfig)
 
-option(INSTALL_PKG_CONFIG "Install OpenEXR.pc file" ON)
-if(INSTALL_PKG_CONFIG)
+option(OPENEXR_INSTALL_PKG_CONFIG "Install OpenEXR.pc file" ON)
+if(OPENEXR_INSTALL_PKG_CONFIG)
   # use a helper function to avoid variable pollution, but pretty simple
   function(openexr_pkg_config_help pcinfile)
     set(prefix ${CMAKE_INSTALL_PREFIX})
@@ -115,7 +115,17 @@ endif()
 # The main export of the configuration - This is the
 # moral equivalent of a pkg-config file for cmake
 # and replaces the Find*.cmake of the "old" cmake
+include(CMakePackageConfigHelpers)
+write_basic_package_version_file("${PROJECT_NAME}ConfigVersion.cmake"
+  VERSION ${OPENEXR_VERSION}
+  COMPATIBILITY SameMinorVersion
+)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+)
 install(EXPORT ${PROJECT_NAME}
   DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+  FILE ${PROJECT_NAME}Config.cmake
   NAMESPACE ${PROJECT_NAME}::
+  EXPORT_LINK_INTERFACE_LIBRARIES
 )

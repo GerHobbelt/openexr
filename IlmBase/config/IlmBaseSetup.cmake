@@ -10,7 +10,12 @@ option(ILMBASE_ENABLE_LARGE_STACK "Enables code to take advantage of large stack
 
 # What C++ standard to compile for
 # VFX Platform 18 is c++14, so let's enable that by default
-set(ILMBASE_CXX_STANDARD "14" CACHE STRING "C++ standard to compile against")
+set(tmp 14)
+if(CMAKE_CXX_STANDARD)
+  set(tmp ${CMAKE_CXX_STANDARD})
+endif()
+set(OPENEXR_CXX_STANDARD "${tmp}" CACHE STRING "C++ standard to compile against")
+set(tmp)
 
 # Namespace-related settings, allows one to customize the
 # namespace generated, and to version the namespaces
@@ -26,12 +31,9 @@ set(ILMBASE_PACKAGE_NAME "IlmBase ${ILMBASE_VERSION}" CACHE STRING "Public strin
 ########################
 ## Build related options
 
-# This is a variable here for use in install lines, but OpenEXR pretty much
-# relies on this code to be intermingled currently... but someone
-# who is making an ilmbase only package could put it somewhere else...
-# NB: If you want to change this, make sure places like the pkgconfig
-# file are updated as appropriate
-set(ILMBASE_OUTPUT_SUBDIR OpenEXR)
+# This is a variable here for use in install lines. Care must be taken
+# when changing this, as many things assume this is OpenEXR
+set(ILMBASE_OUTPUT_SUBDIR OpenEXR CACHE STRING "Destination sub-folder of the include path for install")
 
 # This does not seem to be available as a per-target property,
 # but is pretty harmless to set globally
@@ -57,6 +59,33 @@ set(ILMBASE_LIB_SUFFIX "-${ILMBASE_VERSION_API}" CACHE STRING "string added to t
 # would use -lImath_static (or target_link_libraries(xxx IlmBase::Imath_static))
 set(ILMBASE_STATIC_LIB_SUFFIX "_static" CACHE STRING "When building both static and shared, name to append to static library (in addition to normal suffix)")
 
+# rpath related setup
+# make sure we force an rpath to the rpath we're compiling
+set(CMAKE_SKIP_BUILD_RPATH FALSE)
+set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
+# adds the automatically determined parts of the rpath
+# which point to directories outside the build tree to the install RPATH
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+# if the user sets an install rpath
+# then just use that, or otherwise set one for them
+if(NOT CMAKE_INSTALL_RPATH)
+  list(FIND CMAKE_PLATFORM_IMPLICIT_LINK_DIRECTORIES "${CMAKE_INSTALL_PREFIX}/lib" isSystemDir)
+  if("${isSystemDir}" STREQUAL "-1")
+    if("${CMAKE_SYSTEM}" MATCHES "Linux")
+      get_filename_component(tmpSysPath "${CMAKE_INSTALL_FULL_LIBDIR}" NAME)
+      if(NOT tmpSysPath)
+        set(tmpSysPath "lib")
+      endif()
+      set(CMAKE_INSTALL_RPATH "\\\$ORIGIN/../${tmpSysPath}:${CMAKE_INSTALL_FULL_LIBDIR}")
+    elseif(APPLE)
+      set(CMAKE_INSTALL_RPATH "@rpath:${CMAKE_INSTALL_FULL_LIBDIR}")
+    else()
+      set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_FULL_LIBDIR}")
+    endif()
+  endif()
+  set(isSystemDir)
+endif()
+
 if(APPLE)
   # TODO: Right now, this will make a framework for every library
   # is that desired? Or should the framework be the set of libraries?
@@ -70,16 +99,25 @@ endif()
 
 ########################
 
+# set a default build type if not set
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  message(STATUS "Setting build type to 'Release' as none was specified.")
+  set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build." FORCE)
+  # Set the possible values of build type for cmake-gui
+  set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
+    "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
+endif()
+
 # Code check related features
-option(ILMBASE_USE_CLANG_TIDY "Check if clang-tidy is available, and enable that" OFF)
-if(ILMBASE_USE_CLANG_TIDY)
-  find_program(ILMBASE_CLANG_TIDY_BIN clang-tidy)
-  if(ILMBASE_CLANG_TIDY_BIN-NOTFOUND)
+option(OPENEXR_USE_CLANG_TIDY "Check if clang-tidy is available, and enable that" OFF)
+if(OPENEXR_USE_CLANG_TIDY)
+  find_program(OPENEXR_CLANG_TIDY_BIN clang-tidy)
+  if(OPENEXR_CLANG_TIDY_BIN-NOTFOUND)
     message(FATAL_ERROR "clang-tidy processing requested, but no clang-tidy found")
   endif()
   # TODO: Need to define the list of valid checks and add a file with said list
   set(CMAKE_CXX_CLANG_TIDY
-    ${ILMBASE_CLANG_TIDY_BIN};
+    ${OPENEXR_CLANG_TIDY_BIN};
     -header-filter=.;
     -checks=*;
   )

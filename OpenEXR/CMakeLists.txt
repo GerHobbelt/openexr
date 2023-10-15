@@ -8,11 +8,7 @@ cmake_policy(SET CMP0076 NEW)
 # numbers
 include(config/ParseConfigure.cmake)
 
-project(OpenEXR VERSION ${OPENEXR_VERSION})
-
-# Everyone depends on IlmBase, and we currently rely on
-# the version matched with our release
-find_package(IlmBase ${OPENEXR_VERSION} EXACT REQUIRED)
+project(OpenEXR VERSION ${OPENEXR_VERSION} LANGUAGES C CXX)
 
 #######################################
 #######################################
@@ -25,6 +21,10 @@ find_package(IlmBase ${OPENEXR_VERSION} EXACT REQUIRED)
 #######################################
 include(config/OpenEXRSetup.cmake)
 
+# Everyone depends on IlmBase, and we currently rely on
+# the version matched with our release
+find_package(IlmBase ${OPENEXR_VERSION} EXACT REQUIRED CONFIG)
+
 # generates config headers, package config files
 add_subdirectory(config)
 
@@ -32,15 +32,20 @@ add_subdirectory(config)
 # the libraries
 include(config/LibraryDefine.cmake)
 
+##########################
+
 add_subdirectory( IlmImf )
 add_subdirectory( IlmImfUtil )
 add_subdirectory( IlmImfExamples )
 
+##########################
+# Tests
+##########################
 # Can't seem to do EXCLUDE_FROM_ALL on the test executables
 # since you can't then create a dependency on the internal
 # "test" target such that it is auto built
-option(OPENEXR_ENABLE_TESTS "Enables building of tests" ON)
-if(OPENEXR_ENABLE_TESTS)
+include(CTest)
+if(BUILD_TESTING)
   enable_testing()
   add_subdirectory( IlmImfTest )
   add_subdirectory( IlmImfUtilTest )
