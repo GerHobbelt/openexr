@@ -226,6 +226,8 @@ read_text (
     }
     *outlen = namelen;
     if (namelen > maxlen)
+    {
+        text[maxlen - 1] = '\0';
         return ctxt->print_error (
             ctxt,
             EXR_ERR_NAME_TOO_LONG,
@@ -233,6 +235,7 @@ read_text (
             type,
             text,
             maxlen);
+    }
     return EXR_ERR_SUCCESS;
 }
 
@@ -430,6 +433,8 @@ extract_attr_float_vector (
 
     if (rv == EXR_ERR_SUCCESS && n > 0)
     {
+        /* in case of duplicate attr name in header (mostly fuzz testing) */
+        exr_attr_float_vector_destroy ((exr_context_t) ctxt, attrdata);
         rv = exr_attr_float_vector_init ((exr_context_t) ctxt, attrdata, n);
         if (rv != EXR_ERR_SUCCESS) return rv;
 
@@ -569,14 +574,17 @@ extract_attr_string_vector (
         pulled += nlen;
     }
 
+    // just in case someone injected a duplicate attribute name into the header
+    exr_attr_string_vector_destroy ((exr_context_t) ctxt, attrdata);
     attrdata->n_strings  = nstr;
     attrdata->alloc_size = nalloced;
     attrdata->strings    = clist;
-    return 0;
+    return EXR_ERR_SUCCESS;
 extract_string_vector_fail:
     for (int32_t i = 0; i < nstr; ++i)
         exr_attr_string_destroy ((exr_context_t) ctxt, clist + i);
     if (clist) ctxt->free_fn (clist);
+
     return rv;
 }
 
@@ -647,6 +655,7 @@ extract_attr_opaque (
     rv = check_bad_attrsz (ctxt, attrsz, 1, aname, tname, &n);
     if (rv != EXR_ERR_SUCCESS) return rv;
 
+    exr_attr_opaquedata_destroy ((exr_context_t) ctxt, attrdata);
     rv = exr_attr_opaquedata_init (
         (exr_context_t) ctxt, attrdata, (uint64_t) attrsz);
     if (rv != EXR_ERR_SUCCESS) return rv;
@@ -711,7 +720,7 @@ extract_attr_preview (
             sz[0],
             sz[1]);
 
-    if (fsize > 0 && bytes >= (uint64_t) fsize)
+    if (bytes == 0 || (fsize > 0 && bytes >= (uint64_t) fsize))
     {
         return ctxt->print_error (
             ctxt,
@@ -723,6 +732,7 @@ extract_attr_preview (
             sz[1]);
     }
 
+    exr_attr_preview_destroy ((exr_context_t) ctxt, attrdata);
     rv = exr_attr_preview_init ((exr_context_t) ctxt, attrdata, sz[0], sz[1]);
     if (rv != EXR_ERR_SUCCESS) return rv;
 
@@ -770,7 +780,11 @@ check_populate_channels (
 
     rv = extract_attr_chlist (
         ctxt, scratch, &(tmpchans), EXR_REQ_CHANNELS_STR, tname, attrsz);
-    if (rv != EXR_ERR_SUCCESS) return rv;
+    if (rv != EXR_ERR_SUCCESS)
+    {
+        exr_attr_chlist_destroy ((exr_context_t) ctxt, &(tmpchans));
+        return rv;
+    }
 
     rv = exr_attr_list_add_static_name (
         (exr_context_t) ctxt,
@@ -780,16 +794,18 @@ check_populate_channels (
         0,
         NULL,
         &(curpart->channels));
+
     if (rv != EXR_ERR_SUCCESS)
     {
         exr_attr_chlist_destroy ((exr_context_t) ctxt, &tmpchans);
         return ctxt->print_error (
             ctxt,
             rv,
-            "Unable initialize attribute '%s', type 'int'",
+            "Unable to initialize attribute '%s', type 'chlist'",
             EXR_REQ_CHANNELS_STR);
     }
 
+    exr_attr_chlist_destroy ((exr_context_t) ctxt, curpart->channels->chlist);
     *(curpart->channels->chlist) = tmpchans;
     return rv;
 }
@@ -844,7 +860,7 @@ check_populate_compression (
         return ctxt->print_error (
             ctxt,
             rv,
-            "Unable initialize attribute '%s', type 'int'",
+            "Unable to initialize attribute '%s', type 'compression'",
             EXR_REQ_COMP_STR);
 
     curpart->compression->uc = data;
@@ -896,7 +912,7 @@ check_populate_dataWindow (
         return ctxt->print_error (
             ctxt,
             rv,
-            "Unable initialize attribute '%s', type 'box2i'",
+            "Unable to initialize attribute '%s', type 'box2i'",
             EXR_REQ_DATA_STR);
 
     *(curpart->dataWindow->box2i) = tmpdata;
@@ -948,7 +964,7 @@ check_populate_displayWindow (
         return ctxt->print_error (
             ctxt,
             rv,
-            "Unable initialize attribute '%s', type 'box2i'",
+            "Unable to initialize attribute '%s', type 'box2i'",
             EXR_REQ_DISP_STR);
 
     *(curpart->displayWindow->box2i) = tmpdata;
@@ -1006,7 +1022,7 @@ check_populate_lineOrder (
         return ctxt->print_error (
             ctxt,
             rv,
-            "Unable initialize attribute '%s', type 'int'",
+            "Unable to initialize attribute '%s', type 'lineOrder'",
             EXR_REQ_LO_STR);
 
     curpart->lineOrder->uc = data;
@@ -1077,7 +1093,7 @@ check_populate_pixelAspectRatio (
         return ctxt->print_error (
             ctxt,
             rv,
-            "Unable initialize attribute '%s', type 'int'",
+            "Unable to initialize attribute '%s', type 'float'",
             EXR_REQ_PAR_STR);
 
     curpart->pixelAspectRatio->f = tpun.fval;
@@ -1144,8 +1160,10 @@ check_populate_screenWindowCenter (
         return ctxt->print_error (
             ctxt,
             rv,
-            "Unable initialize attribute '%s', type 'int'",
+            "Unable to initialize attribute '%s', type 'v2f'",
             EXR_REQ_SCR_WC_STR);
+
+    *(curpart->screenWindowCenter->v2f) = tmpdata;
     return rv;
 }
 
@@ -1212,7 +1230,7 @@ check_populate_screenWindowWidth (
         return ctxt->print_error (
             ctxt,
             rv,
-            "Unable initialize attribute '%s', type 'int'",
+            "Unable to initialize attribute '%s', type 'float'",
             EXR_REQ_SCR_WW_STR);
 
     curpart->screenWindowWidth->f = tpun.fval;
@@ -1272,7 +1290,7 @@ check_populate_tiles (
         return ctxt->print_error (
             ctxt,
             rv,
-            "Unable initialize attribute '%s', type 'tiledesc'",
+            "Unable to initialize attribute '%s', type 'tiledesc'",
             EXR_REQ_TILES_STR);
 
     *(curpart->tiles->tiledesc) = tmpdata;
@@ -1322,7 +1340,7 @@ check_populate_name (
         return ctxt->print_error (
             ctxt,
             rv,
-            "Unable initialize attribute '%s', type 'string'",
+            "Unable to initialize attribute '%s', type 'string'",
             EXR_REQ_NAME_STR);
     }
 
@@ -1395,7 +1413,7 @@ check_populate_type (
         return ctxt->print_error (
             ctxt,
             rv,
-            "Unable initialize attribute '%s', type 'string'",
+            "Unable to initialize attribute '%s', type 'string'",
             EXR_REQ_TYPE_STR);
     }
 
@@ -1432,14 +1450,14 @@ check_populate_type (
         curpart->storage_mode = EXR_STORAGE_DEEP_TILED;
     else
     {
-        exr_attr_list_remove (
-            (exr_context_t) ctxt, &(curpart->attributes), curpart->type);
-        curpart->type = NULL;
-        return ctxt->print_error (
+        rv = ctxt->print_error (
             ctxt,
             EXR_ERR_INVALID_ATTR,
             "attribute 'type': Invalid type string '%s'",
             outstr);
+        exr_attr_list_remove (
+            (exr_context_t) ctxt, &(curpart->attributes), curpart->type);
+        curpart->type = NULL;
     }
 
     return rv;
@@ -1498,7 +1516,7 @@ check_populate_version (
         return ctxt->print_error (
             ctxt,
             rv,
-            "Unable initialize attribute '%s', type 'int'",
+            "Unable to initialize attribute '%s', type 'int'",
             EXR_REQ_VERSION_STR);
     curpart->version->i = attrsz;
     return rv;
@@ -1552,7 +1570,7 @@ check_populate_chunk_count (
         return ctxt->print_error (
             ctxt,
             rv,
-            "Unable initialize attribute '%s', type 'int'",
+            "Unable to initialize attribute '%s', type 'int'",
             EXR_REQ_CHUNK_COUNT_STR);
 
     attrsz                 = (int32_t) one_to_native32 ((uint32_t) attrsz);
@@ -1728,7 +1746,7 @@ pull_attr (
         return ctxt->print_error (
             ctxt,
             rv,
-            "Unable initialize attribute '%s', type '%s'",
+            "Unable to initialize attribute '%s', type '%s'",
             name,
             type);
 
@@ -1931,7 +1949,7 @@ static int64_t
 calc_level_size (int mind, int maxd, int level, exr_tile_round_mode_t rounding)
 {
     int64_t dsize   = (int64_t) maxd - (int64_t) mind + 1;
-    int     b       = (1 << level);
+    int64_t b       = ( (int64_t) 1) << level;
     int64_t retsize = dsize / b;
 
     if (rounding == EXR_TILE_ROUND_UP && retsize * b < dsize) retsize += 1;
@@ -2184,7 +2202,7 @@ internal_exr_compute_chunk_offset_size (struct _internal_exr_part* curpart)
         curpart->lines_per_chunk         = ((int16_t) linePerChunk);
         curpart->chan_has_line_sampling  = ((int16_t) hasLineSample);
 
-        h      = (uint64_t) dw.max.y - (uint64_t) dw.min.y + 1;
+        h      = (uint64_t) ((int64_t) dw.max.y - (int64_t) dw.min.y + 1);
         retval = (int32_t) ((h + linePerChunk - 1) / linePerChunk);
     }
     return retval;
