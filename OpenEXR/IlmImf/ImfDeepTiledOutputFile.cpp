@@ -202,6 +202,9 @@ struct BufferedTile
         delete [] pixelData;
         delete [] sampleCountTableData;
     }
+
+    BufferedTile (const BufferedTile& other) = delete;
+    const BufferedTile& operator = (const BufferedTile& other) = delete;
 };
 
 
@@ -311,6 +314,9 @@ struct DeepTiledOutputFile::Data
      Data (int numThreads);
     ~Data ();
 
+    Data (const Data& other) = delete;
+    const Data& operator = (const Data& other) = delete;
+    
     inline TileBuffer * getTileBuffer (int number);
                                                 // hash function from tile
                                                 // buffer coords into our

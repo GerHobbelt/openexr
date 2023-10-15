@@ -23,11 +23,12 @@ function(PYILMBASE_ADD_LIBRARY_PRIV libname)
     OUTPUT_NAME "${PYILMBASE_CURLIB_OUTROOT}${libname}${PYILMBASE_LIB_SUFFIX}"
   )
   target_compile_features(${libname} PUBLIC cxx_std_${OPENEXR_CXX_STANDARD})
-  if(PYILMBASE_CURLIB_PRIV_EXPORT AND BUILD_SHARED_LIBS)
+  # we are always building shared, so don't check for that
+  if(PYILMBASE_CURLIB_PRIV_EXPORT)
     target_compile_definitions(${libname} PRIVATE ${PYILMBASE_CURLIB_PRIV_EXPORT})
-    if(WIN32)
-      target_compile_definitions(${libname} PUBLIC OPENEXR_DLL)
-    endif()
+  endif()
+  if(WIN32)
+    target_compile_definitions(${libname} PUBLIC OPENEXR_DLL)
   endif()
   if(PYILMBASE_CURLIB_CURDIR)
     target_include_directories(${libname} PUBLIC $<BUILD_INTERFACE:${PYILMBASE_CURLIB_CURDIR}>)
@@ -35,7 +36,9 @@ function(PYILMBASE_ADD_LIBRARY_PRIV libname)
   if(PYILMBASE_CURLIB_CURBINDIR)
     target_include_directories(${libname} PRIVATE $<BUILD_INTERFACE:${PYILMBASE_CURLIB_CURBINDIR}>)
   endif()
-  target_include_directories(${libname} PUBLIC ${Boost_INCLUDE_DIR})
+  if(Boost_INCLUDE_DIR)
+    target_include_directories(${libname} PUBLIC ${Boost_INCLUDE_DIR})
+  endif()
   target_link_libraries(${libname} PUBLIC ${PYILMBASE_CURLIB_DEPENDENCIES})
   if(PYILMBASE_CURLIB_PRIVATE_DEPS)
     target_link_libraries(${libname} PRIVATE ${PYILMBASE_CURLIB_PRIVATE_DEPS})
@@ -123,7 +126,7 @@ function(PYILMBASE_DEFINE_MODULE modname)
       LIBRARY_OUTPUT_NAME "${modname}"
       DEBUG_POSTFIX ""
     )
-    #### TODO: Define installation rules
+    install(TARGETS ${modname}_python2 DESTINATION ${PyIlmBase_Python2_SITEARCH_REL})
   endif()
 
   if(TARGET Python3::Python AND TARGET Boost::${PYILMBASE_BOOST_PY3_COMPONENT})
@@ -150,6 +153,6 @@ function(PYILMBASE_DEFINE_MODULE modname)
       LIBRARY_OUTPUT_NAME "${modname}"
       DEBUG_POSTFIX ""
     )
-    #### TODO: Define installation rules
+    install(TARGETS ${modname}_python3 DESTINATION ${PyIlmBase_Python3_SITEARCH_REL})
   endif()
 endfunction()

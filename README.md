@@ -3,51 +3,35 @@
 [![Build Status](https://dev.azure.com/openexr/OpenEXR/_apis/build/status/openexr.openexr?branchName=master)](https://dev.azure.com/openexr/OpenEXR/_build/latest?definitionId=1&branchName=master)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=openexr_openexr&metric=alert_status)](https://sonarcloud.io/dashboard?id=openexr_openexr)
 
-<img align="right" src="/OpenEXR/doc/images/windowExample1.png">
-
 # OpenEXR
 
-The OpenEXR project provides the specification and reference
-implementation of the EXR file format, the professional-grade image
-storage format of the motion picture industry. The purpose of format
-is to accurately and efficiently represent high-dynamic-range
-scene-linear image data and associated metadata, with strong support
-for multi-part, multi-channel use cases. The library is widely used in
-host application software where accuracy is critical, such as
-photorealistic rendering, texture access, image compositing, deep
-compositing, and DI.
+<img align="right" src="/OpenEXR/doc/images/windowExample1.png">
 
-## OpenEXR Project Mission
+OpenEXR provides the specification and reference implementation of the
+EXR file format, the professional-grade image storage format of the
+motion picture industry.
 
-The goal of the OpenEXR project is to keep the EXR format reliable and
-modern and to maintain its place as the preferred image format for
-entertainment content creation. 
+The purpose of EXR format is to accurately and efficiently represent
+high-dynamic-range scene-linear image data and associated metadata,
+with strong support for multi-part, multi-channel use cases.
 
-Major revisions are infrequent, and new features will be carefully
-weighed against increased complexity.  The principal priorities of the
-project are:
+OpenEXR is widely used in host application software where accuracy is
+critical, such as photorealistic rendering, texture access, image
+compositing, deep compositing, and DI.
 
-* Robustness, reliability, security
-* Backwards compatibility, data longevity
-* Performance - read/write/compression/decompression time
-* Simplicity, ease of use, maintainability
-* Wide adoption, multi-platform support - Linux, Windows, macOS, and others
+### About OpenEXR
 
-OpenEXR is intended solely for 2D data. It is not appropriate for
-storage of volumetric data, cached or lit 3D scenes, or more complex
-3D data such as light fields.
+OpenEXR is a project of the [Academy Software
+Foundation](https://www.aswf.io).  The format and library were
+originally developed by Industrial Light & Magic and first released
+in 2003.  Weta Digital, Walt Disney Animation Studios, Sony Pictures
+Imageworks, Pixar Animation Studios, DreamWorks, and other studios,
+companies, and individuals have made contributions to the code base.
 
-Also a part of OpenEXR, the IlmBase library is a basic, light-weight,
-and efficient representation of 2D and 3D vectors and matrices and
-other simple but useful mathematical objects, functions, and data
-types common in computer graphics applications, including the “half”
-16-bit floating-point type. The goal of the project is simplicity,
-ease of use, and breadth of adoption. It is not intended to be a
-comprehensive linear algebra or numerical analysis package.
+OpenEXR is included in the [VFX Reference
+Platform](https://vfxplatform.com).
 
-## Features
-
-OpenEXR's features include:
+### OpenEXR Features
 
 * High dynamic range and color precision.
 * Support for 16-bit floating-point, 32-bit floating-point, and
@@ -74,35 +58,52 @@ OpenEXR's features include:
   namespaces to provide protection when using multiple versions of the
   library in the same process space.
 
-OpenEXR is included in the [VFX Reference
-Platform](https://vfxplatform.com).
+### The IlmBase Library
 
-OpenEXR is a project of the [Academy Software
-Foundation](https://www.aswf.io).  It was originally developed by
-Industrial Light & Magic (ILM) and first released in 2003.  Weta
-Digital, Walt Disney Animation Studios, Sony Pictures Imageworks,
-Pixar Animation Studios, DreamWorks, and other studios, companies, and
-individuals have made contributions to the code base.
+Also a part of OpenEXR, the IlmBase library is a basic, light-weight,
+and efficient representation of 2D and 3D vectors and matrices and
+other simple but useful mathematical objects, functions, and data
+types common in computer graphics applications, including the “half”
+16-bit floating-point type. 
 
-## OpenEXR Sub-Modules
-
-The OpenEXR distribution consists of the following sub-modules:
-
-* **IlmBase** - Utility libraries from Industrial Light & Magic: Half, Imath, Iex, IlmThread.
-* **PyIlmBase** - Python bindings for the IlmBase libraries.
-* **OpenEXR** - The core image library.
-* **OpenEXR_Viewers** - Example code for image viewing programs.
-* **Contrib** - Various plugins and utilities, contributed by the community.
-    
-A collection of OpenEXR images is available from the adjacent repository
-https://github.com/openexr/openexr-images.
-
-## Supported Platforms
+### Supported Platforms
 
 OpenEXR builds on Linux, macOS, Microsoft Windows, and is
 cross-compilable on other systems.
 
-The Python bindings in PyIlmBase support Python 2 and Python 3.
+### OpenEXR Project Mission
+
+The goal of the OpenEXR project is to keep the EXR format reliable and
+modern and to maintain its place as the preferred image format for
+entertainment content creation. 
+
+Major revisions are infrequent, and new features will be carefully
+weighed against increased complexity.  The principal priorities of the
+project are:
+
+* Robustness, reliability, security
+* Backwards compatibility, data longevity
+* Performance - read/write/compression/decompression time
+* Simplicity, ease of use, maintainability
+* Wide adoption, multi-platform support - Linux, Windows, macOS, and others
+
+OpenEXR is intended solely for 2D data. It is not appropriate for
+storage of volumetric data, cached or lit 3D scenes, or more complex
+3D data such as light fields.
+
+The goals of the IlmBase project are simplicity, ease of use,
+correctness and verifiability, and breadth of adoption. IlmBase is not
+intended to be a comprehensive linear algebra or numerical analysis
+package.
+
+### OpenEXR Project Goverance
+
+OpenEXR is governed by the Academy Software Foundation. See
+[GOVERNANCE](GOVERNANCE.md) for more infomation about how the project
+operates.
+
+The OpenEXR project is dedicated to promoting a harassment-free
+community. Read our [code of conduct](CODE_OF_CONDUCT.md).
 
 ## Developer Quick Start
 
@@ -116,6 +117,8 @@ from source.
 * GitHub repository: http://www.github.com/openexr/openexr
 
 * Documentation: http://www.openexr.com/documentation.html.
+
+* Reference images: https://github.com/openexr/openexr-images.
 
 ### Getting Help
 
@@ -139,15 +142,9 @@ contributing to OpenEXR.
 
 ## License
 
-OpenEXR is released under the [BSD-3-Clause](LICENSE) license.
-
-See [PATENTS](OpenEXR/PATENTS) for license information about portions of OpenEXR that are provided under a different license.
-
-## Project Goverance
-
-OpenEXR is governed by the Academy Software Foundation. See
-[GOVERNANCE](GOVERNANCE.md) for more infomation about how the project
-operates.
+OpenEXR is released under the [BSD-3-Clause](LICENSE) license. See
+[PATENTS](OpenEXR/PATENTS) for license information about portions of
+OpenEXR that are provided under a different license.
 
 ## Frequently Asked Questions
 
