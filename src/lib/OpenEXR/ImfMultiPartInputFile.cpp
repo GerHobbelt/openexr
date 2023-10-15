@@ -1,36 +1,7 @@
-///////////////////////////////////////////////////////////////////////////
 //
-// Copyright (c) 2011, Industrial Light & Magic, a division of Lucas
-// Digital Ltd. LLC
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) Contributors to the OpenEXR Project.
 //
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-// *       Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-// *       Redistributions in binary form must reproduce the above
-// copyright notice, this list of conditions and the following disclaimer
-// in the documentation and/or other materials provided with the
-// distribution.
-// *       Neither the name of Industrial Light & Magic nor the names of
-// its contributors may be used to endorse or promote products derived
-// from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-// OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-///////////////////////////////////////////////////////////////////////////
 
 #include "ImfMultiPartInputFile.h"
 
@@ -509,7 +480,7 @@ MultiPartInputFile::Data::chunkOffsetReconstruction(OPENEXR_IMF_INTERNAL_NAMESPA
     // Reconstruct broken chunk offset tables. Stop once we received any exception.
     //
 
-    Int64 position = is.tellg();
+    uint64_t position = is.tellg();
 
     
     //
@@ -590,7 +561,7 @@ MultiPartInputFile::Data::chunkOffsetReconstruction(OPENEXR_IMF_INTERNAL_NAMESPA
         // 
         //
         
-        Int64 chunk_start = position;
+        uint64_t chunk_start = position;
         for (size_t i = 0; i < total_chunks ; i++)
         {
             //
@@ -614,7 +585,7 @@ MultiPartInputFile::Data::chunkOffsetReconstruction(OPENEXR_IMF_INTERNAL_NAMESPA
 
             // size of chunk NOT including multipart field
             
-            Int64 size_of_chunk=0;
+            uint64_t size_of_chunk=0;
 
             if (isTiled(header.type()))
             {
@@ -649,8 +620,8 @@ MultiPartInputFile::Data::chunkOffsetReconstruction(OPENEXR_IMF_INTERNAL_NAMESPA
                 // ones
                 if(header.type()==DEEPTILE)
                 {
-                    Int64 packed_offset;
-                    Int64 packed_sample;
+                    uint64_t packed_offset;
+                    uint64_t packed_sample;
                     OPENEXR_IMF_INTERNAL_NAMESPACE::Xdr::read <OPENEXR_IMF_INTERNAL_NAMESPACE::StreamIO> (is, packed_offset);
                     OPENEXR_IMF_INTERNAL_NAMESPACE::Xdr::read <OPENEXR_IMF_INTERNAL_NAMESPACE::StreamIO> (is, packed_sample);
                     
@@ -674,7 +645,7 @@ MultiPartInputFile::Data::chunkOffsetReconstruction(OPENEXR_IMF_INTERNAL_NAMESPA
                           throw IEX_NAMESPACE::IoExc("Invalid chunk size");
                     }
 
-                    size_of_chunk=static_cast<Int64>(chunksize) + 20ll;
+                    size_of_chunk=static_cast<uint64_t>(chunksize) + 20ll;
                 }
             }
             else
@@ -699,8 +670,8 @@ MultiPartInputFile::Data::chunkOffsetReconstruction(OPENEXR_IMF_INTERNAL_NAMESPA
                 
                 if(header.type()==DEEPSCANLINE)
                 {
-                    Int64 packed_offset;
-                    Int64 packed_sample;
+                    uint64_t packed_offset;
+                    uint64_t packed_sample;
                     OPENEXR_IMF_INTERNAL_NAMESPACE::Xdr::read <OPENEXR_IMF_INTERNAL_NAMESPACE::StreamIO> (is, packed_offset);
                     OPENEXR_IMF_INTERNAL_NAMESPACE::Xdr::read <OPENEXR_IMF_INTERNAL_NAMESPACE::StreamIO> (is, packed_sample);
 
@@ -724,7 +695,7 @@ MultiPartInputFile::Data::chunkOffsetReconstruction(OPENEXR_IMF_INTERNAL_NAMESPA
                     {
                           throw IEX_NAMESPACE::IoExc("Invalid chunk size");
                     }
-                    size_of_chunk=static_cast<Int64>(chunksize) + 8ll;
+                    size_of_chunk=static_cast<uint64_t>(chunksize) + 8ll;
                 }
                 
             }
@@ -762,7 +733,7 @@ MultiPartInputFile::Data::chunkOffsetReconstruction(OPENEXR_IMF_INTERNAL_NAMESPA
         if(tileOffsets[partNumber])
         {
             size_t pos=0;
-            vector<vector<vector <Int64> > > offsets = tileOffsets[partNumber]->getOffsets();
+            vector<vector<vector <uint64_t> > > offsets = tileOffsets[partNumber]->getOffsets();
             for (size_t l = 0; l < offsets.size(); l++)
                 for (size_t y = 0; y < offsets[l].size(); y++)
                     for (size_t x = 0; x < offsets[l][y].size(); x++)
@@ -808,9 +779,9 @@ MultiPartInputFile::Data::readChunkOffsetTables(bool reconstructChunkOffsetTable
         //
         if (chunkOffsetTableSize > gLargeChunkTableSize)
         {
-            Int64 pos = is->tellg();
-            is->seekg(pos + (chunkOffsetTableSize-1)*sizeof(Int64));
-            Int64 temp;
+            uint64_t pos = is->tellg();
+            is->seekg(pos + (chunkOffsetTableSize-1)*sizeof(uint64_t));
+            uint64_t temp;
             OPENEXR_IMF_INTERNAL_NAMESPACE::Xdr::read <OPENEXR_IMF_INTERNAL_NAMESPACE::StreamIO> (*is, temp);
             is->seekg(pos);
 

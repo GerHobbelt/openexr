@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright Contributors to the OpenEXR Project.
+# Copyright (c) Contributors to the OpenEXR Project.
 
 include(GNUInstallDirs)
 
@@ -69,14 +69,12 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 # (if you should choose to install those)
 set(CMAKE_DEBUG_POSTFIX "_d" CACHE STRING "Suffix for debug builds")
 
-# Usual cmake option to build shared libraries or not
-option(BUILD_SHARED_LIBS "Build shared library" ON)
-# This allows a "double library" setup, where we compile both
-# a dynamic and shared library
-option(OPENEXR_BUILD_BOTH_STATIC_SHARED  "Build both static and shared libraries in one step (otherwise follows BUILD_SHARED_LIBS)" OFF)
-if (OPENEXR_BUILD_BOTH_STATIC_SHARED)
-  set(BUILD_SHARED_LIBS ON)
+if(NOT OPENEXR_IS_SUBPROJECT)
+  # Usual cmake option to build shared libraries or not, only overriden if OpenEXR is a top level project,
+  # in general this setting should be explicitly configured by the end user
+  option(BUILD_SHARED_LIBS "Build shared library" ON)
 endif()
+
 # Suffix to append to root name, this helps with version management
 # but can be turned off if you don't care, or otherwise customized
 set(OPENEXR_LIB_SUFFIX "-${OPENEXR_VERSION_API}" CACHE STRING "string added to the end of all the libraries")
@@ -161,9 +159,11 @@ endif()
 
 option(OPENEXR_FORCE_INTERNAL_ZLIB "Force using an internal zlib" OFF)
 if (NOT OPENEXR_FORCE_INTERNAL_ZLIB)
-  find_package(ZLIB QUIET)
+  if(NOT TARGET ZLIB::ZLIB)
+    find_package(ZLIB QUIET)
+  endif()
 endif()
-if(OPENEXR_FORCE_INTERNAL_ZLIB OR NOT ZLIB_FOUND)
+if(OPENEXR_FORCE_INTERNAL_ZLIB OR NOT TARGET ZLIB::ZLIB)
   set(zlib_VER "1.2.11")
   if(OPENEXR_FORCE_INTERNAL_ZLIB)
     message(STATUS "Compiling internal copy of zlib version ${zlib_VER}")
@@ -221,7 +221,7 @@ if(OPENEXR_FORCE_INTERNAL_ZLIB OR NOT ZLIB_FOUND)
   endif()
 
   if(NOT (APPLE OR WIN32) AND BUILD_SHARED_LIBS AND NOT OPENEXR_FORCE_INTERNAL_ZLIB)
-    add_library(zlib_shared SHARED IMPORTED)
+    add_library(zlib_shared SHARED IMPORTED GLOBAL)
     add_dependencies(zlib_shared zlib_external)
     set_property(TARGET zlib_shared PROPERTY
       IMPORTED_LOCATION "${zlib_INTERNAL_DIR}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}${zliblibname}${CMAKE_SHARED_LIBRARY_SUFFIX}"
@@ -229,7 +229,7 @@ if(OPENEXR_FORCE_INTERNAL_ZLIB OR NOT ZLIB_FOUND)
     target_include_directories(zlib_shared INTERFACE "${zlib_INTERNAL_DIR}/include")
   endif()
 
-  add_library(zlib_static STATIC IMPORTED)
+  add_library(zlib_static STATIC IMPORTED GLOBAL)
   add_dependencies(zlib_static zlib_external)
   set_property(TARGET zlib_static PROPERTY
     IMPORTED_LOCATION "${zlib_INTERNAL_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}${zlibstaticlibname}${CMAKE_STATIC_LIBRARY_SUFFIX}"
@@ -248,6 +248,11 @@ endif()
 #######################################
 
 # Check to see if Imath is installed outside of the current build directory.
+set(IMATH_REPO "https://github.com/AcademySoftwareFoundation/Imath.git" CACHE STRING
+    "Repo for auto-build of Imath")
+set(IMATH_TAG "master" CACHE STRING
+    "Tag for auto-build of Imath (branch, tag, or SHA)")
+#TODO: ^^ Release should not clone from master, this is a place holder
 set(CMAKE_IGNORE_PATH "${CMAKE_CURRENT_BINARY_DIR}/_deps/imath-src/config;${CMAKE_CURRENT_BINARY_DIR}/_deps/imath-build/config")
 find_package(Imath QUIET)
 set(CMAKE_IGNORE_PATH)
@@ -256,12 +261,12 @@ if(NOT TARGET Imath::Imath AND NOT Imath_FOUND)
   if (${CMAKE_VERSION} VERSION_LESS "3.11.0")
     message(FATAL_ERROR "CMake 3.11 or newer is required for FetchContent, you must manually install Imath if you are using an earlier version of CMake")
   endif()
-  message(STATUS "Imath was not found, installing from github")
+  message(STATUS "Imath was not found, installing from ${IMATH_REPO} (${IMATH_TAG})")
   
   include(FetchContent)
   FetchContent_Declare(Imath
-    GIT_REPOSITORY https://github.com/AcademySoftwareFoundation/Imath.git
-    GIT_TAG origin/master #TODO: Release should not clone from master, this is a place holder
+    GIT_REPOSITORY ${IMATH_REPO}
+    GIT_TAG ${IMATH_TAG}
     GIT_SHALLOW ON
       )
     

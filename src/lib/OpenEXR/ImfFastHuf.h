@@ -1,42 +1,15 @@
-///////////////////////////////////////////////////////////////////////////
 //
-// Copyright (c) 2009-2014 DreamWorks Animation LLC. 
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) DreamWorks Animation LLC and Contributors of the OpenEXR Project
 //
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-// *       Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-// *       Redistributions in binary form must reproduce the above
-// copyright notice, this list of conditions and the following disclaimer
-// in the documentation and/or other materials provided with the
-// distribution.
-// *       Neither the name of DreamWorks Animation nor the names of
-// its contributors may be used to endorse or promote products derived
-// from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-// OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-///////////////////////////////////////////////////////////////////////////
 
 #ifndef INCLUDED_IMF_FAST_HUF_H
 #define INCLUDED_IMF_FAST_HUF_H
 
-#include "ImfInt64.h"
 #include "ImfNamespace.h"
 #include "ImfExport.h"
+
+#include <cstdint>
 
 OPENEXR_IMF_INTERNAL_NAMESPACE_HEADER_ENTER
 
@@ -108,9 +81,9 @@ class FastHufDecoder
 
   private:
 
-    void  buildTables (Int64*, Int64*);
-    void  refill (Int64&, int, Int64&, int&, const unsigned char *&, int&);
-    Int64 readBits (int, Int64&, int&, const char *&);
+    void  buildTables (uint64_t*, uint64_t*);
+    void  refill (uint64_t&, int, uint64_t&, int&, const unsigned char *&, int&);
+    uint64_t readBits (int, uint64_t&, int&, const char *&);
 
     int             _rleSymbol;        // RLE symbol written by the encoder.
                                        // This could be 65536, so beware
@@ -127,11 +100,11 @@ class FastHufDecoder
                                        // the same length. Ids run from 0
                                        // to mNumSymbols-1.
 
-    Int64 _ljBase[MAX_CODE_LEN + 1];   // the 'left justified base' table.
+    uint64_t _ljBase[MAX_CODE_LEN + 1];   // the 'left justified base' table.
                                        // Takes base[i] (i = code length)
-                                       // and 'left justifies' it into an Int64
+                                       // and 'left justifies' it into an uint64_t
 
-    Int64 _ljOffset[MAX_CODE_LEN +1 ]; // There are some other terms that can 
+    uint64_t _ljOffset[MAX_CODE_LEN +1 ]; // There are some other terms that can 
                                        // be folded into constants when taking
                                        // the 'left justified' decode path. This
                                        // holds those constants, indexed by
@@ -150,7 +123,7 @@ class FastHufDecoder
 
     int            _tableSymbol[1 << TABLE_LOOKUP_BITS];
     unsigned char  _tableCodeLen[1 << TABLE_LOOKUP_BITS];
-    Int64          _tableMin;
+    uint64_t       _tableMin;
 };
 
 OPENEXR_IMF_INTERNAL_NAMESPACE_HEADER_EXIT

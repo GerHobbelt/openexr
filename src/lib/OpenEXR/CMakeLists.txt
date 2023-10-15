@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright Contributors to the OpenEXR Project.
+# Copyright (c) Contributors to the OpenEXR Project.
 
 openexr_define_library(OpenEXR
   PRIV_EXPORT OPENEXR_EXPORTS
@@ -157,7 +157,6 @@ openexr_define_library(OpenEXR
     ImfRgbaYca.h
     ImfTestFile.h
     ImfThreading.h
-    ImfB44Compressor.h
     ImfStringVectorAttribute.h
     ImfMultiView.h
     ImfAcesFile.h

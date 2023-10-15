@@ -1,18 +1,17 @@
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright Contributors to the OpenEXR Project.
+# Copyright (c) Contributors to the OpenEXR Project.
 
 # We require this to get object library link library support
-if(OPENEXR_BUILD_BOTH_STATIC_SHARED)
-  if (${CMAKE_VERSION} VERSION_LESS "3.12.0")
-    message(FATAL_ERROR "CMake 3.12 or newer is required for object library support when building both static and shared libraries")
-  endif()
-  cmake_minimum_required(VERSION 3.12)
-else()
-  cmake_minimum_required(VERSION 3.10)
-endif()
+cmake_minimum_required(VERSION 3.12)
 
 if(POLICY CMP0074)
+  # enable find_package(<Package>) to use <Package>_ROOT as a hint
   cmake_policy(SET CMP0074 NEW)
+endif()
+
+if(POLICY CMP0077)
+  # enable variables set outside to override options
+  cmake_policy(SET CMP0077 NEW)
 endif()
 
 #######################################
@@ -23,6 +22,12 @@ endif()
 include(cmake/OpenEXRVersion.cmake)
 
 project(OpenEXR VERSION ${OPENEXR_VERSION} LANGUAGES C CXX)
+
+option(OPENEXR_INSTALL "Install OpenEXR libraries" ON)
+option(OPENEXR_INSTALL_TOOLS "Install OpenEXR tools" ON)
+if(OPENEXR_INSTALL_TOOLS AND NOT OPENEXR_INSTALL)
+  message(SEND_ERROR "OPENEXR_INSTALL_TOOLS requires OPENEXR_INSTALL")
+endif()
 
 include(cmake/LibraryDefine.cmake)
 include(cmake/OpenEXRSetup.cmake)
@@ -49,8 +54,8 @@ set(OpenEXR_DIR "${CMAKE_CURRENT_BINARY_DIR}/cmake" CACHE PATH "" FORCE)
 # Can be empty since we already defined the targets in add_subdirectory
 file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/cmake/OpenEXRTargets.cmake" "# Dummy file")
 
-option(INSTALL_OPENEXR_EXAMPLES "Install OpenEXR examples" ON)
-if(INSTALL_OPENEXR_EXAMPLES)
+option(OPENEXR_INSTALL_EXAMPLES "Install OpenEXR examples" ON)
+if(OPENEXR_INSTALL_EXAMPLES)
   add_subdirectory( src/examples )
 endif()
 

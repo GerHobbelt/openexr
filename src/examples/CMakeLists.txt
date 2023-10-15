@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright Contributors to the OpenEXR Project.
+# Copyright (c) Contributors to the OpenEXR Project.
 
 add_executable(OpenEXRExamples
   drawImage.cpp
@@ -35,6 +35,6 @@ install(
   DESTINATION
     ${CMAKE_INSTALL_DOCDIR}/examples
   )
-if(WIN32 AND (BUILD_SHARED_LIBS OR OPENEXR_BUILD_BOTH_STATIC_SHARED))
+if(WIN32 AND BUILD_SHARED_LIBS)
   target_compile_definitions(OpenEXRExamples PRIVATE OPENEXR_DLL)
 endif()

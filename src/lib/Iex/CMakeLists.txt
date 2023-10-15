@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright Contributors to the OpenEXR Project.
+# Copyright (c) Contributors to the OpenEXR Project.
 
 openexr_define_library(Iex
   PRIV_EXPORT IEX_EXPORTS
@@ -7,6 +7,8 @@ openexr_define_library(Iex
   SOURCES
     IexBaseExc.cpp
     IexThrowErrnoExc.cpp
+    IexMathFloatExc.cpp
+    IexMathFpu.cpp
   HEADERS
     IexBaseExc.h
     IexMathExc.h

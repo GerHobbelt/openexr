@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright Contributors to the OpenEXR Project.
+# Copyright (c) Contributors to the OpenEXR Project.
 
 openexr_define_library(IlmThread
   PRIV_EXPORT ILMTHREAD_EXPORTS
@@ -27,8 +27,5 @@ openexr_define_library(IlmThread
 
 if(OPENEXR_ENABLE_THREADING)
   target_link_libraries(IlmThread PUBLIC Threads::Threads)
-  if(OPENEXR_BUILD_BOTH_STATIC_SHARED)
-    target_link_libraries(IlmThread_static PUBLIC Threads::Threads)
-  endif()
 endif()
 

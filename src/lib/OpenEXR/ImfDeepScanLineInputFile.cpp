@@ -1,37 +1,7 @@
-///////////////////////////////////////////////////////////////////////////
 //
-// Copyright (c) 2011, Industrial Light & Magic, a division of Lucas
-// Digital Ltd. LLC
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) Contributors to the OpenEXR Project.
 //
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-// *       Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-// *       Redistributions in binary form must reproduce the above
-// copyright notice, this list of conditions and the following disclaimer
-// in the documentation and/or other materials provided with the
-// distribution.
-// *       Neither the name of Industrial Light & Magic nor the names of
-// its contributors may be used to endorse or promote products derived
-// from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-// OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-///////////////////////////////////////////////////////////////////////////
-
 
 //-----------------------------------------------------------------------------
 //
@@ -146,8 +116,8 @@ struct LineBuffer
 {
     const char *        uncompressedData;
     char *              buffer;
-    Int64               packedDataSize;
-    Int64               unpackedDataSize;
+    uint64_t            packedDataSize;
+    uint64_t            unpackedDataSize;
 
     int                 minY;
     int                 maxY;
@@ -206,7 +176,7 @@ struct DeepScanLineInputFile::Data
     int                         maxX;               // data window's max x coord
     int                         minY;               // data window's min y coord
     int                         maxY;               // data window's max x coord
-    vector<Int64>               lineOffsets;        // stores offsets in file for
+    vector<uint64_t>            lineOffsets;        // stores offsets in file for
                                                     // each line
     bool                        fileIsComplete;     // True if no scanlines are missing
                                                     // in the file
@@ -325,21 +295,21 @@ namespace {
 void
 reconstructLineOffsets (OPENEXR_IMF_INTERNAL_NAMESPACE::IStream &is,
                         LineOrder lineOrder,
-                        vector<Int64> &lineOffsets)
+                        vector<uint64_t> &lineOffsets)
 {
-    Int64 position = is.tellg();
+    uint64_t position = is.tellg();
 
     try
     {
         for (unsigned int i = 0; i < lineOffsets.size(); i++)
         {
-            Int64 lineOffset = is.tellg();
+            uint64_t lineOffset = is.tellg();
 
             int y;
             OPENEXR_IMF_INTERNAL_NAMESPACE::Xdr::read <OPENEXR_IMF_INTERNAL_NAMESPACE::StreamIO> (is, y);
             
-            Int64 packed_offset;
-            Int64 packed_sample;
+            uint64_t packed_offset;
+            uint64_t packed_sample;
             OPENEXR_IMF_INTERNAL_NAMESPACE::Xdr::read <OPENEXR_IMF_INTERNAL_NAMESPACE::StreamIO> (is, packed_offset);
             OPENEXR_IMF_INTERNAL_NAMESPACE::Xdr::read <OPENEXR_IMF_INTERNAL_NAMESPACE::StreamIO> (is, packed_sample);
             //next is unpacked sample table size - skip this too
@@ -380,7 +350,7 @@ reconstructLineOffsets (OPENEXR_IMF_INTERNAL_NAMESPACE::IStream &is,
 void
 readLineOffsets (OPENEXR_IMF_INTERNAL_NAMESPACE::IStream &is,
                  LineOrder lineOrder,
-                 vector<Int64> &lineOffsets,
+                 vector<uint64_t> &lineOffsets,
                  bool &complete)
 {
     for (unsigned int i = 0; i < lineOffsets.size(); i++)
@@ -420,8 +390,8 @@ readPixelData (InputStreamMutex *streamData,
                DeepScanLineInputFile::Data *ifd,
                int minY,
                char *&buffer,
-               Int64 &packedDataSize,
-               Int64 &unpackedDataSize)
+               uint64_t &packedDataSize,
+               uint64_t &unpackedDataSize)
 {
     //
     // Read a single line buffer from the input file.
@@ -434,7 +404,7 @@ readPixelData (InputStreamMutex *streamData,
 
     int lineBufferNumber = (minY - ifd->minY) / ifd->linesInBuffer;
 
-    Int64 lineOffset = ifd->lineOffsets[lineBufferNumber];
+    uint64_t lineOffset = ifd->lineOffsets[lineBufferNumber];
 
     if (lineOffset == 0)
         THROW (IEX_NAMESPACE::InputExc, "Scan line " << minY << " is missing.");
@@ -485,7 +455,7 @@ readPixelData (InputStreamMutex *streamData,
     if (yInFile != minY)
         throw IEX_NAMESPACE::InputExc ("Unexpected data block y coordinate.");
 
-    Int64 sampleCountTableSize;
+    uint64_t sampleCountTableSize;
     OPENEXR_IMF_INTERNAL_NAMESPACE::Xdr::read <OPENEXR_IMF_INTERNAL_NAMESPACE::StreamIO> (*streamData->is, sampleCountTableSize);
     OPENEXR_IMF_INTERNAL_NAMESPACE::Xdr::read <OPENEXR_IMF_INTERNAL_NAMESPACE::StreamIO> (*streamData->is, packedDataSize);
     OPENEXR_IMF_INTERNAL_NAMESPACE::Xdr::read <OPENEXR_IMF_INTERNAL_NAMESPACE::StreamIO> (*streamData->is, unpackedDataSize);
@@ -502,8 +472,8 @@ readPixelData (InputStreamMutex *streamData,
     //
 
     int compressorMaxDataSize = std::numeric_limits<int>::max();
-    if (packedDataSize   > Int64(compressorMaxDataSize) ||
-        unpackedDataSize > Int64(compressorMaxDataSize))
+    if (packedDataSize   > uint64_t(compressorMaxDataSize) ||
+        unpackedDataSize > uint64_t(compressorMaxDataSize))
     {
         THROW (IEX_NAMESPACE::ArgExc, "This version of the library does not support "
               << "the allocation of data with size  > " << compressorMaxDataSize
@@ -610,7 +580,7 @@ LineBufferTask::execute ()
 
         if (_lineBuffer->uncompressedData == 0)
         {
-            Int64 uncompressedSize = 0;
+            uint64_t uncompressedSize = 0;
             int maxY = min (_lineBuffer->maxY, _ifd->maxY);
 
             for (int i = _lineBuffer->minY - _ifd->minY;
@@ -628,7 +598,7 @@ LineBufferTask::execute ()
 
             if (_lineBuffer->compressor != 0)
                 delete _lineBuffer->compressor;
-            Int64 maxBytesPerLine = 0;
+            uint64_t maxBytesPerLine = 0;
             for (int i = _lineBuffer->minY - _ifd->minY;
                  i <= maxY - _ifd->minY;
                  ++i)
@@ -851,7 +821,17 @@ void DeepScanLineInputFile::initialize(const Header& header)
         if (header.type() != DEEPSCANLINE)
             throw IEX_NAMESPACE::ArgExc("Can't build a DeepScanLineInputFile from "
             "a type-mismatched part.");
-        
+
+
+        if (_data->partNumber == -1)
+        {
+            if (isTiled (_data->version))
+                throw IEX_NAMESPACE::ArgExc ("Expected a deep scanline file but the file is tiled.");
+
+            if (!isNonImage (_data->version))
+                throw IEX_NAMESPACE::ArgExc ("Expected a deep scanline file but the file is not a deep image.");
+        }
+
         if(header.version()!=1)
         {
             THROW(IEX_NAMESPACE::ArgExc, "Version " << header.version() << " not supported for deepscanline images in this version of the library");
@@ -1522,16 +1502,16 @@ struct I64Bytes
 };
 
 
-union bytesOrInt64
+union bytesOruint64_t
 {
     I64Bytes b;
-    Int64 i;
+    uint64_t i;
 };
 }
 void
 DeepScanLineInputFile::rawPixelData (int firstScanLine,
                                      char *pixelData,
-                                     Int64 &pixelDataSize)
+                                     uint64_t &pixelDataSize)
 {
    
     
@@ -1539,7 +1519,7 @@ DeepScanLineInputFile::rawPixelData (int firstScanLine,
     (firstScanLine, _data->minY, _data->linesInBuffer);
     int lineBufferNumber = (minY - _data->minY) / _data->linesInBuffer;
     
-    Int64 lineOffset = _data->lineOffsets[lineBufferNumber];
+    uint64_t lineOffset = _data->lineOffsets[lineBufferNumber];
     
     if (lineOffset == 0)
         THROW (IEX_NAMESPACE::InputExc, "Scan line " << minY << " is missing.");
@@ -1582,14 +1562,14 @@ DeepScanLineInputFile::rawPixelData (int firstScanLine,
     if (yInFile != minY)
         throw IEX_NAMESPACE::InputExc ("Unexpected data block y coordinate.");
     
-    Int64 sampleCountTableSize;
-    Int64 packedDataSize;
+    uint64_t sampleCountTableSize;
+    uint64_t packedDataSize;
     OPENEXR_IMF_INTERNAL_NAMESPACE::Xdr::read <OPENEXR_IMF_INTERNAL_NAMESPACE::StreamIO> (*_data->_streamData->is, sampleCountTableSize);
     OPENEXR_IMF_INTERNAL_NAMESPACE::Xdr::read <OPENEXR_IMF_INTERNAL_NAMESPACE::StreamIO> (*_data->_streamData->is, packedDataSize);
     
     // total requirement for reading all the data
     
-    Int64 totalSizeRequired=28+sampleCountTableSize+packedDataSize;
+    uint64_t totalSizeRequired=28+sampleCountTableSize+packedDataSize;
     
     bool big_enough = totalSizeRequired<=pixelDataSize;
     
@@ -1611,7 +1591,7 @@ DeepScanLineInputFile::rawPixelData (int firstScanLine,
     
     // copy the values we have read into the output block
     *(int *) pixelData = yInFile;
-    bytesOrInt64 tmp;
+    bytesOruint64_t tmp;
     tmp.i=sampleCountTableSize;
     memcpy(pixelData+4,&tmp.b,8);
     tmp.i = packedDataSize;
@@ -1645,9 +1625,9 @@ void DeepScanLineInputFile::readPixels (const char* rawPixelData,
     // read header from block - already converted from Xdr to native format
     //
     int data_scanline = *(int *) rawPixelData;
-    Int64 sampleCountTableDataSize=*(Int64 *) (rawPixelData+4);
-    Int64 packedDataSize = *(Int64 *) (rawPixelData+12);
-    Int64 unpackedDataSize = *(Int64 *) (rawPixelData+20);
+    uint64_t sampleCountTableDataSize=*(uint64_t *) (rawPixelData+4);
+    uint64_t packedDataSize = *(uint64_t *) (rawPixelData+12);
+    uint64_t unpackedDataSize = *(uint64_t *) (rawPixelData+20);
 
     
     
@@ -1837,7 +1817,7 @@ void DeepScanLineInputFile::readPixelSampleCounts (const char* rawPixelData,
     // read header from block - already converted from Xdr to native format
     //
     int data_scanline = *(int *) rawPixelData;
-    Int64 sampleCountTableDataSize=*(Int64 *) (rawPixelData+4);
+    uint64_t sampleCountTableDataSize=*(uint64_t *) (rawPixelData+4);
     
     
     int maxY;
@@ -1858,7 +1838,7 @@ void DeepScanLineInputFile::readPixelSampleCounts (const char* rawPixelData,
     // If the sample count table is compressed, we'll uncompress it.
     //
     
-    Int64 rawSampleCountTableSize = (maxY - data_scanline + 1) * (_data->maxX - _data->minX + 1) *
+    uint64_t rawSampleCountTableSize = (maxY - data_scanline + 1) * (_data->maxX - _data->minX + 1) *
     Xdr::size <unsigned int> ();
     
     
@@ -1949,18 +1929,18 @@ readSampleCountForLineBlock(InputStreamMutex* streamData,
     int maxY;
     maxY = min(minY + data->linesInBuffer - 1, data->maxY);
 
-    Int64 sampleCountTableDataSize;
+    uint64_t sampleCountTableDataSize;
     OPENEXR_IMF_INTERNAL_NAMESPACE::Xdr::read <OPENEXR_IMF_INTERNAL_NAMESPACE::StreamIO> (*streamData->is, sampleCountTableDataSize);
 
     
     
-    if(sampleCountTableDataSize>static_cast<Int64>(data->maxSampleCountTableSize))
+    if(sampleCountTableDataSize>static_cast<uint64_t>(data->maxSampleCountTableSize))
     {
         THROW (IEX_NAMESPACE::ArgExc, "Bad sampleCountTableDataSize read from chunk "<< lineBlockId << ": expected " << data->maxSampleCountTableSize << " or less, got "<< sampleCountTableDataSize);
     }
     
-    Int64 packedDataSize;
-    Int64 unpackedDataSize;
+    uint64_t packedDataSize;
+    uint64_t unpackedDataSize;
     OPENEXR_IMF_INTERNAL_NAMESPACE::Xdr::read <OPENEXR_IMF_INTERNAL_NAMESPACE::StreamIO> (*streamData->is, packedDataSize);
     OPENEXR_IMF_INTERNAL_NAMESPACE::Xdr::read <OPENEXR_IMF_INTERNAL_NAMESPACE::StreamIO> (*streamData->is, unpackedDataSize);
 
@@ -1977,7 +1957,7 @@ readSampleCountForLineBlock(InputStreamMutex* streamData,
     //
 
     int compressorMaxDataSize = std::numeric_limits<int>::max();
-    if (sampleCountTableDataSize > Int64(compressorMaxDataSize))
+    if (sampleCountTableDataSize > uint64_t(compressorMaxDataSize))
     {
         THROW (IEX_NAMESPACE::ArgExc, "This version of the library does not "
               << "support the allocation of data with size  > "
@@ -1993,7 +1973,7 @@ readSampleCountForLineBlock(InputStreamMutex* streamData,
     //
 
 
-    if (sampleCountTableDataSize < static_cast<Int64>(data->maxSampleCountTableSize))
+    if (sampleCountTableDataSize < static_cast<uint64_t>(data->maxSampleCountTableSize))
     {
         if(!data->sampleCountTableComp)
         {
@@ -2080,7 +2060,7 @@ fillSampleCountFromCache(int y, DeepScanLineInputFile::Data* data)
 void
 DeepScanLineInputFile::readPixelSampleCounts (int scanline1, int scanline2)
 {
-    Int64 savedFilePos = 0;
+    uint64_t savedFilePos = 0;
 
     if(!_data->frameBufferValid)
     {
