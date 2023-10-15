@@ -260,6 +260,27 @@ modifications to the TSC by assigning the `tsc-review` label to a pull
 request or issue. The TSC should serve as the final arbiter where
 required.
 
+### Test Policy
+
+All functionality in the library must be covered by an automated
+test. Each library has a companion ``Test`` project - ``ImathTest``,
+``HalfTest``, ``IlmImfTest`, etc.  This test suite is collectively
+expected to validate the behavior of very part of the library.
+
+* Any new functionality should be accompanied by a test that validates
+  its behavior.
+
+* Any change to existing functionality should have tests added if they
+  don't already exist.
+
+The test should should be run, via ``make check``, before submitting a
+pull request.
+
+In addition, the ``IlmImfFuzzTest`` project validates the library by
+feeding it corrupted input data. This test is time-consuming (possible
+over 24 hours), so it will only be run occasionally, but it must
+succeed before a release is made.
+
 ### Project Issue Handling Process
 
 Incoming new issues are labeled promptly by the TSC using GitHub labels. 
@@ -356,6 +377,34 @@ C++ implementation should be named `*.cpp`. Headers should be named `.h`.
 All headers should contain:
 
     #pragma once
+
+#### Type Conventions
+
+Because OpenEXR must deal properly with large images, whose width
+and/or height approach the maximum allowable in 32-bit signed
+integers, take special care that integer arithmatic doesn't overlow,
+and make it as clear as possible exactly what the code is doing,
+especially in the edge cases.
+
+To clarify the intention, prefer to cast between types using
+``static_cast<>()`` rather than the basic C-style ``()`` notation:
+
+    // good:
+    size_t x = static_cast <size_t> (y);
+
+    // bad:
+    x = (size_t) y;
+    x = size_t (y);
+
+Prefer to use ``std::numeric_limits<>`` instead of preprocesser
+define's such as ``INT_MAX``:
+
+    // good:
+    if (x > std::numeric_limits<int>::max())
+        std::cout << "That's too freakin' high.\n";
+
+    // bad:
+    if (x > INT_MAX)
 
 #### Copyright Notices
 
