@@ -50,7 +50,7 @@ validate_req_attr (
     {
         if (adddefault)
         {
-            exr_attr_box2i_t defdw = { 0, 0, 63, 63 };
+            exr_attr_box2i_t defdw = {0, 0, 63, 63};
             rv                     = exr_attr_list_add_static_name (
                 (exr_context_t) f,
                 &(curpart->attributes),
@@ -78,7 +78,7 @@ validate_req_attr (
     {
         if (adddefault)
         {
-            exr_attr_box2i_t defdw = { 0, 0, 63, 63 };
+            exr_attr_box2i_t defdw = {0, 0, 63, 63};
             rv                     = exr_attr_list_add_static_name (
                 (exr_context_t) f,
                 &(curpart->attributes),
@@ -151,7 +151,7 @@ validate_req_attr (
     {
         if (adddefault)
         {
-            exr_attr_v2f_t defswc = { 0.f, 0.f };
+            exr_attr_v2f_t defswc = {0.f, 0.f};
             rv                    = exr_attr_list_add_static_name (
                 (exr_context_t) f,
                 &(curpart->attributes),
@@ -584,7 +584,7 @@ internal_exr_validate_read_part (
 {
     exr_result_t rv;
 
-    rv = validate_req_attr (f, curpart, 1);
+    rv = validate_req_attr (f, curpart, !f->strict_header);
     if (rv != EXR_ERR_SUCCESS) return rv;
 
     rv = validate_image_dimensions (f, curpart);

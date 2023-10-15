@@ -7,7 +7,6 @@
 #include "internal_attr.h"
 #include "internal_constants.h"
 #include "internal_memory.h"
-#include "backward_compatibility.h"
 
 #include <IlmThreadConfig.h>
 
@@ -174,7 +173,7 @@ internal_exr_destroy_part (
     cur->chunk_table = 0;
 #else
     ctable = (uint64_t*) atomic_load (&(cur->chunk_table));
-    atomic_store (&(cur->chunk_table), (uintptr_t)(0));
+    atomic_store (&(cur->chunk_table), (uintptr_t) (0));
 #endif
     if (ctable) dofree (ctable);
 }
@@ -227,7 +226,7 @@ internal_exr_add_part (
     }
     else
     {
-        struct _internal_exr_part nil = { 0 };
+        struct _internal_exr_part nil = {0};
 
         part = f->alloc_fn (sizeof (struct _internal_exr_part));
         if (!part) return f->standard_error (f, EXR_ERR_OUT_OF_MEMORY);
@@ -294,8 +293,7 @@ internal_exr_revert_add_part (
     }
     else if (ncount == 1)
     {
-        if (part == &(ctxt->first_part))
-            ctxt->first_part = *(ctxt->parts[1]);
+        if (part == &(ctxt->first_part)) ctxt->first_part = *(ctxt->parts[1]);
         ctxt->init_part = &(ctxt->first_part);
         ctxt->free_fn (ctxt->parts);
         ctxt->parts = &(ctxt->init_part);
@@ -311,6 +309,18 @@ internal_exr_revert_add_part (
         }
     }
     ctxt->num_parts = ncount;
+}
+
+/**************************************/
+
+exr_result_t
+internal_exr_context_restore_handlers (
+    struct _internal_exr_context* ctxt, exr_result_t rv)
+{
+    ctxt->standard_error = &dispatch_standard_error;
+    ctxt->report_error   = &dispatch_error;
+    ctxt->print_error    = &dispatch_print_error;
+    return rv;
 }
 
 /**************************************/
@@ -394,13 +404,18 @@ internal_exr_alloc_context (
 
         exr_get_default_zip_compression_level (&ret->default_zip_level);
         exr_get_default_dwa_compression_quality (&ret->default_dwa_quality);
-        if (initializers->size >= sizeof(struct _exr_context_initializer_v2))
-        {
-            if (initializers->zip_level >= 0)
-                ret->default_zip_level = initializers->zip_level;
-            if (initializers->dwa_quality >= 0.f)
-                ret->default_dwa_quality = initializers->dwa_quality;
-        }
+        if (initializers->zip_level >= 0)
+            ret->default_zip_level = initializers->zip_level;
+        if (initializers->dwa_quality >= 0.f)
+            ret->default_dwa_quality = initializers->dwa_quality;
+
+        if (initializers->flags & EXR_CONTEXT_FLAG_STRICT_HEADER)
+            ret->strict_header = 1;
+        if (initializers->flags & EXR_CONTEXT_FLAG_SILENT_HEADER_PARSE)
+            ret->silent_header = 1;
+        ret->disable_chunk_reconstruct =
+            (initializers->flags &
+             EXR_CONTEXT_FLAG_DISABLE_CHUNK_RECONSTRUCTION);
 
         ret->file_size       = -1;
         ret->max_name_length = EXR_SHORTNAME_MAXLEN;
