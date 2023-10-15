@@ -40,6 +40,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include "bswap_32.h"
 
 #include "tmpDir.h"
 #include "testFutureProofing.h"
@@ -64,6 +65,7 @@
 #include <ImfNamespace.h>
 #include <ImathNamespace.h>
 #include <IlmThreadNamespace.h>
+#include <ImfSystemSpecific.h>
 
 namespace IMF = OPENEXR_IMF_NAMESPACE;
 using namespace IMF;
@@ -1234,6 +1236,11 @@ modifyType (bool modify_version)
             
             //length of attribute
             fread(&length,4,1,f);
+            if (!GLOBAL_SYSTEM_LITTLE_ENDIAN)
+            {
+        	length = bswap_32(length);
+            }
+
             if(!modify_version && attrib_name=="type")
             {
                 // modify the type of part 1 to be 'X<whatevever>'
