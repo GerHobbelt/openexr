@@ -23,7 +23,7 @@ project(PyIlmBase VERSION ${PYILMBASE_VERSION} LANGUAGES C CXX)
 include(config/PyIlmBaseSetup.cmake)
 
 # we have a strong dependence on IlmBase being an exact match
-find_package(IlmBase ${OPENEXR_VERSION} EXACT REQUIRED CONFIG)
+find_package(IlmBase ${PYILMBASE_VERSION} EXACT REQUIRED CONFIG)
 
 # we are building a python extension, so of course we depend on
 # python as well. Except we don't know which version...
@@ -139,6 +139,10 @@ include(config/ModuleDefine.cmake)
 
 ##########################
 add_subdirectory(config)
+
+if(NOT BUILD_SHARED_LIBS)
+  message(WARNING "Forcing python bindings to be built with dynamic libraries")
+endif()
 
 add_subdirectory( PyIex )
 add_subdirectory( PyImath )
