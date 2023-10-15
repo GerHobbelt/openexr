@@ -37,105 +37,29 @@
 
 //-----------------------------------------------------------------------------
 //
-//	class Mutex, class Lock
-//
-//	Class Mutex is a wrapper for a system-dependent mutual exclusion
-//	mechanism.  Actual locking and unlocking of a Mutex object must
-//	be performed using an instance of a Lock (defined below).
-//
-//	Class lock provides safe locking and unlocking of mutexes even in
-//	the presence of C++ exceptions.  Constructing a Lock object locks
-//	the mutex; destroying the Lock unlocks the mutex.
-//
-//	Lock objects are not themselves thread-safe.  You should never
-//	share a Lock object among multiple threads.
-//
-//	Typical usage:
-//    
-//	    Mutex mtx;	// Create a Mutex object that is visible
-//	    		//to multiple threads
-//
-//	    ...		// create some threads
-//
-//	    // Then, within each thread, construct a critical section like so:
-//
-//	    {
-//		Lock lock (mtx);	// Lock constructor locks the mutex
-//		...			// do some computation on shared data
-//	    }				// leaving the block unlocks the mutex
+// NB: Maintained for backward compatibility with header files only. This
+// has been entirely replaced by c++11 and the std::mutex layer
 //
 //-----------------------------------------------------------------------------
+
+#include <mutex>
 
 #include "IlmThreadExport.h"
 #include "IlmBaseConfig.h"
 #include "IlmThreadNamespace.h"
 
-#ifdef ILMBASE_FORCE_CXX03
-#   if defined (_WIN32) || defined (_WIN64)
-#      ifdef NOMINMAX
-#         undef NOMINMAX
-#      endif
-#      define NOMINMAX
-#      include <windows.h>
-#   endif
-#   ifdef HAVE_PTHREAD
-#      include <pthread.h>
-#   endif
-#else
-#   include <mutex>
-#endif
-
 ILMTHREAD_INTERNAL_NAMESPACE_HEADER_ENTER
 
+using Mutex ILMBASE_DEPRECATED ("replace with std::mutex") = std::mutex;
 
-// in c++11, this can just be
-//
-// using Mutex = std::mutex;
 // unfortunately we can't use std::unique_lock as a replacement for Lock since
-// they have different API.
-//
-// if we decide to break the API, we can just
-//
-// using Lock = std::lock_guard<std::mutex>;
-// or
-// using Lock = std::unique_lock<std::mutex>;
-//
-// (or eliminate the type completely and have people use the std library) 
-#ifdef ILMBASE_FORCE_CXX03
-
-class Lock;
-
-class ILMTHREAD_EXPORT Mutex
-{
-  public:
-
-    Mutex ();
-    virtual ~Mutex ();
-
-  private:
-
-    void	lock () const;
-    void	unlock () const;
-
-    #if (defined (_WIN32) || defined (_WIN64)) && !defined (HAVE_PTHREAD)
-	mutable CRITICAL_SECTION _mutex;
-    #elif defined (HAVE_PTHREAD)
-	mutable pthread_mutex_t _mutex;
-    #endif
-
-    void operator = (const Mutex& M);	// not implemented
-    Mutex (const Mutex& M);		// not implemented
-    
-    friend class Lock;
-};
-#else
-using Mutex = std::mutex;
-#endif
-
+// they have different API. Let us deprecate for now and give people a chance
+// to clean up their code.
 class ILMTHREAD_EXPORT Lock
 {
   public:
 
+    ILMBASE_DEPRECATED ("replace with std::lock_guard or std::unique_lock")
     Lock (const Mutex& m, bool autoLock = true):
         _mutex (const_cast<Mutex &>(m)), _locked (false)
     {
@@ -164,8 +88,8 @@ class ILMTHREAD_EXPORT Lock
     
     void release ()
     {
-        _mutex.unlock();
         _locked = false;
+        _mutex.unlock();
     }
     
     bool locked ()

@@ -1,8 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright Contributors to the OpenEXR Project.
 
-# We require this to get object library link library support and
-# combined python 2 + 3 support
+# We require this to get object library link library support
 if(OPENEXR_BUILD_BOTH_STATIC_SHARED OR ILMBASE_BUILD_BOTH_STATIC_SHARED)
   if (${CMAKE_VERSION} VERSION_LESS "3.12.0")
     message(FATAL_ERROR "CMake 3.12 or newer is required for object library support when building both static and shared libraries")
@@ -16,41 +15,44 @@ if(POLICY CMP0074)
   cmake_policy(SET CMP0074 NEW)
 endif()
 
+#######################################
+# Create project and include cmake
+# configuration files
+#######################################
+
+include(cmake/OpenEXRVersion.cmake)
+
+project(OpenEXR VERSION ${OPENEXR_VERSION} LANGUAGES C CXX)
+
+include(cmake/LibraryDefine.cmake)
+include(cmake/OpenEXRSetup.cmake)
+add_subdirectory(cmake)
+
 # Hint: This can be set to enable custom find_package
 # search paths, probably best to set it when configuring
 # on the command line to cmake instead of setting it
 # here.
 ###set(CMAKE_PREFIX_PATH "/prefix")
 
-include(cmake/OpenEXRVersion.cmake)
-include(cmake/IlmBaseVersion.cmake)
-
-project(OpenEXR VERSION ${OPENEXR_VERSION} LANGUAGES C CXX)
-
-include(cmake/LibraryDefine.cmake)
-include(cmake/OpenEXRSetup.cmake)
-include(cmake/IlmBaseSetup.cmake)
-add_subdirectory(cmake)
+#######################################
+# Add all source in subdirectories
+#######################################
 
 # Include these two modules without enable/disable options
 add_subdirectory(src/lib)
-
-# Tell CMake where to find the IlmBaseConfig.cmake file. Makes it posible to call 
-# find_package(IlmBase) in downstream projects
-set(IlmBase_DIR "${CMAKE_CURRENT_BINARY_DIR}/src/lib/config" CACHE PATH "" FORCE)
-# Add an empty IlmBaseTargets.cmake file for the config to use. 
-# Can be empty since we already defined the targets in add_subdirectory
-file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/src/lib/config/IlmBaseTargets.cmake" "# Dummy file")
-
 add_subdirectory(src/bin)
 
 # Tell CMake where to find the OpenEXRConfig.cmake file. Makes it posible to call 
 # find_package(OpenEXR) in downstream projects
-set(OpenEXR_DIR "${CMAKE_CURRENT_BINARY_DIR}/src/bin/config" CACHE PATH "" FORCE)
+set(OpenEXR_DIR "${CMAKE_CURRENT_BINARY_DIR}/cmake" CACHE PATH "" FORCE)
 # Add an empty OpenEXRTargets.cmake file for the config to use. 
 # Can be empty since we already defined the targets in add_subdirectory
-file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/src/bin/config/OpenEXRTargets.cmake" "# Dummy file")
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/cmake/OpenEXRTargets.cmake" "# Dummy file")
 
+option(INSTALL_OPENEXR_EXAMPLES "Install OpenEXR examples" ON)
+if(INSTALL_OPENEXR_EXAMPLES)
+  add_subdirectory( src/examples )
+endif()
 
 # If you want to use ctest to configure, build and
 # upload the results, cmake has builtin support for
@@ -81,29 +83,9 @@ if(BUILD_TESTING)
   add_subdirectory(src/test)
 endif()
 
-#######################################
-
-find_package(Imath QUIET)
-
-if(NOT Imath_FOUND)
-  message("Imath was not found. It is going to be cloned and installed.")
-  
-  include(ExternalProject)
-
-  set(EXTERNAL_INSTALL_LOCATION ${CMAKE_BINARY_DIR}/Imath)
-
-  ExternalProject_Add(Imath
-    GIT_REPOSITORY https://github.com/AcademySoftwareFoundation/Imath.git
-    GIT_TAG origin/master
-    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION} -DPYTHON=${PYTHON}
-    # Python bindings will be generated for Imath if PYTHON=ON
-    )
-
-  include_directories(${EXTERNAL_INSTALL_LOCATION}/include)
-  link_directories(${EXTERNAL_INSTALL_LOCATION}/lib)
-  
+if(Imath_FOUND)
+  # Including this module will add a `clang-format` target to the build if
+  # the clang-format executable can be found. Imath comes with its own, hence the
+  # conditional inclusion.
+  include(cmake/clang-format.cmake)
 endif()
-
-# Including this module will add a `clang-format` target to the build if
-# the clang-format executable can be found.
-include(cmake/clang-format.cmake)

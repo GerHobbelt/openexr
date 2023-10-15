@@ -20,12 +20,29 @@ set(OPENEXR_INTERNAL_IMF_NAMESPACE "Imf_${OPENEXR_VERSION_API}" CACHE STRING "Re
 set(OPENEXR_IMF_NAMESPACE "Imf" CACHE STRING "Public namespace alias for OpenEXR")
 set(OPENEXR_PACKAGE_NAME "OpenEXR ${OPENEXR_VERSION}" CACHE STRING "Public string / label for displaying package")
 
-# Whether to generate and install a pkg-config file OpenEXR.pc
+# Namespace-related settings, allows one to customize the
+# namespace generated, and to version the namespaces
+set(ILMBASE_NAMESPACE_CUSTOM "0" CACHE STRING "Whether the namespace has been customized (so external users know)")
+set(ILMBASE_INTERNAL_IEX_NAMESPACE "Iex_${ILMBASE_VERSION_API}" CACHE STRING "Real namespace for Iex that will end up in compiled symbols")
+set(ILMBASE_INTERNAL_ILMTHREAD_NAMESPACE "IlmThread_${ILMBASE_VERSION_API}" CACHE STRING "Real namespace for IlmThread that will end up in compiled symbols")
+set(ILMBASE_IEX_NAMESPACE "Iex" CACHE STRING "Public namespace alias for Iex")
+set(ILMBASE_ILMTHREAD_NAMESPACE "IlmThread" CACHE STRING "Public namespace alias for IlmThread")
+set(ILMBASE_PACKAGE_NAME "IlmBase ${ILMBASE_VERSION}" CACHE STRING "Public string / label for displaying package")
+
+# Whether to generate and install a pkg-config file OpenEXR.pc and IlmBase.pc
 if (WIN32)
 option(OPENEXR_INSTALL_PKG_CONFIG "Install OpenEXR.pc file" OFF)
 else()
 option(OPENEXR_INSTALL_PKG_CONFIG "Install OpenEXR.pc file" ON)
 endif()
+
+# Whether to enable threading. This can be disabled, although thread pool and tasks
+# are still used, just processed immediately
+option(OPENEXR_ENABLE_THREADING "Enables threaded processing of requests" ON)
+
+# This is primarily for the auto array that enables a stack
+# object (if you enable this) that contains member to avoid double allocations
+option(OPENEXR_ENABLE_LARGE_STACK "Enables code to take advantage of large stack support"     OFF)
 
 ########################
 ## Build related options
@@ -59,7 +76,7 @@ endif()
 set(OPENEXR_LIB_SUFFIX "-${OPENEXR_VERSION_API}" CACHE STRING "string added to the end of all the libraries")
 # when building both dynamic and static, the additional string to
 # add to the library name, such that to get static linkage, you
-# would use -lImath_static (or target_link_libraries(xxx IlmBase::Imath_static))
+# would use -lOpenEXR_static (or target_link_libraries(xxx OpenEXR::OpenEXR_static))
 set(OPENEXR_STATIC_LIB_SUFFIX "_static" CACHE STRING "When building both static and shared, name to append to static library (in addition to normal suffix)")
 
 # rpath related setup
@@ -124,16 +141,120 @@ endif()
 
 # so we know how to add the thread stuff to the pkg-config package
 # which is the only (but good) reason.
-if(NOT TARGET Threads::Threads)
-  set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
-  set(THREADS_PREFER_PTHREAD_FLAG TRUE)
-  find_package(Threads)
-  if(NOT Threads_FOUND)
-    message(FATAL_ERROR "Unable to find a threading library which is required for OpenEXR")
+if(OPENEXR_ENABLE_THREADING)
+
+  if(NOT TARGET Threads::Threads)
+    set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
+    set(THREADS_PREFER_PTHREAD_FLAG TRUE)
+    find_package(Threads)
+    if(NOT Threads_FOUND)
+      message(FATAL_ERROR "Unable to find a threading library which is required for OpenEXR")
+    endif()
   endif()
 endif()
 
-find_package(ZLIB REQUIRED)
-if(NOT TARGET ZLIB::ZLIB)
-  message(FATAL_ERROR "Unable to find zlib library target which is required for OpenEXR")
+option(OPENEXR_FORCE_INTERNAL_ZLIB "Force using an internal zlib" OFF)
+if (NOT OPENEXR_FORCE_INTERNAL_ZLIB)
+  find_package(ZLIB QUIET)
+endif()
+if(OPENEXR_FORCE_INTERNAL_ZLIB OR NOT ZLIB_FOUND)
+  set(zlib_VER "1.2.11")
+  if(OPENEXR_FORCE_INTERNAL_ZLIB)
+    message(NOTICE "Compiling internal copy of zlib version ${zlib_VER}")
+  else()
+    message(NOTICE "ZLIB library not found, compiling ${zlib_VER}")
+  endif()
+
+  # Unfortunately, zlib has an ancient cmake setup which does not include
+  # modern cmake exports, so we can't use the faster / more integrated
+  # FetchContent as we do for Imath below. There may be a way, but
+  # external project is just as easy
+  include(ExternalProject)
+
+  set(cmake_cc_arg)
+  if (CMAKE_CROSSCOMPILING)
+    set(cmake_cc_arg -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE})
+  endif ()
+
+  if(NOT OPENEXR_FORCE_INTERNAL_ZLIB)
+    set(zlib_INTERNAL_DIR "${CMAKE_INSTALL_PREFIX}" CACHE PATH "zlib install dir")
+  else()
+    set(zlib_INTERNAL_DIR "${CMAKE_BINARY_DIR}/zlib-install" CACHE PATH "zlib install dir")
+  endif()
+
+  # Need to set byproducts so ninja generator knows where the targets come from
+  ExternalProject_Add(zlib_external
+    GIT_REPOSITORY "https://github.com/madler/zlib.git"
+    GIT_SHALLOW ON
+    GIT_TAG "v${zlib_VER}"
+    UPDATE_COMMAND ""
+    SOURCE_DIR zlib-src
+    BINARY_DIR zlib-build
+    INSTALL_DIR ${zlib_INTERNAL_DIR}
+    BUILD_BYPRODUCTS
+      "${zlib_INTERNAL_DIR}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}z${CMAKE_SHARED_LIBRARY_SUFFIX}"
+      "${zlib_INTERNAL_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}z${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    CMAKE_ARGS
+      -D CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+      -D CMAKE_POSITION_INDEPENDENT_CODE=ON
+      -D CMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>
+      -D CMAKE_GENERATOR:STRING=${CMAKE_GENERATOR}
+      ${cmake_cc_arg}
+      )
+
+  file(MAKE_DIRECTORY "${zlib_INTERNAL_DIR}")
+  file(MAKE_DIRECTORY "${zlib_INTERNAL_DIR}/include")
+  file(MAKE_DIRECTORY "${zlib_INTERNAL_DIR}/lib")
+
+  if(BUILD_SHARED_LIBS AND NOT OPENEXR_FORCE_INTERNAL_ZLIB)
+    add_library(zlib_shared SHARED IMPORTED)
+    add_dependencies(zlib_shared zlib_external)
+    set_property(TARGET zlib_shared PROPERTY
+      IMPORTED_LOCATION "${zlib_INTERNAL_DIR}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}z${CMAKE_SHARED_LIBRARY_SUFFIX}"
+      )
+    target_include_directories(zlib_shared INTERFACE "${zlib_INTERNAL_DIR}/include")
+  endif()
+
+  add_library(zlib_static STATIC IMPORTED)
+  add_dependencies(zlib_static zlib_external)
+  set_property(TARGET zlib_static PROPERTY
+    IMPORTED_LOCATION "${zlib_INTERNAL_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}z${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    )
+  target_include_directories(zlib_static INTERFACE "${zlib_INTERNAL_DIR}/include")
+
+  if (BUILD_SHARED_LIBS AND NOT OPENEXR_FORCE_INTERNAL_ZLIB)
+    add_library(ZLIB::ZLIB ALIAS zlib_shared)
+  else()
+    add_library(ZLIB::ZLIB ALIAS zlib_static)
+  endif()
+endif()
+
+#######################################
+# Find or install Imath
+#######################################
+
+# Check to see if Imath is installed outside of the current build directory.
+set(CMAKE_IGNORE_PATH "${CMAKE_CURRENT_BINARY_DIR}/_deps/imath-src/config;${CMAKE_CURRENT_BINARY_DIR}/_deps/imath-build/config")
+find_package(Imath QUIET)
+set(CMAKE_IGNORE_PATH)
+
+if(NOT TARGET Imath::Imath AND NOT Imath_FOUND)
+  if (${CMAKE_VERSION} VERSION_LESS "3.11.0")
+    message(FATAL_ERROR "CMake 3.11 or newer is required for FetchContent, you must manually install Imath if you are using an earlier version of CMake")
+  endif()
+  message(NOTICE "Imath was not found, installing from github")
+  
+  include(FetchContent)
+  FetchContent_Declare(Imath
+    GIT_REPOSITORY https://github.com/AcademySoftwareFoundation/Imath.git
+    GIT_TAG origin/master #TODO: Release should not clone from master, this is a place holder
+    GIT_SHALLOW ON
+      )
+    
+  FetchContent_GetProperties(Imath)
+  if(NOT Imath_POPULATED)
+    FetchContent_Populate(Imath)
+    # hrm, cmake makes Imath lowercase for the properties (to imath)
+    add_subdirectory(${imath_SOURCE_DIR} ${imath_BINARY_DIR})
+  endif()
 endif()
