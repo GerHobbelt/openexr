@@ -47,6 +47,7 @@
 
 #include "ImfImageChannel.h"
 #include "ImfUtilExport.h"
+#include "ImfImageLevel.h"
 
 #include <ImfPixelType.h>
 #include <ImfFrameBuffer.h>
@@ -66,7 +67,7 @@ class FlatImageLevel;
 // only for pixels within the data window of the level.
 //
 
-class IMF_EXPORT FlatImageChannel: public ImageChannel
+class FlatImageChannel: public ImageChannel
 {
   public:
 

@@ -226,14 +226,16 @@ MultiPartOutputFile::MultiPartOutputFile (const char fileName[],
     }
     catch (IEX_NAMESPACE::BaseExc &e)
     {
+        delete _data->os;
         delete _data;
 
         REPLACE_EXC (e, "Cannot open image file "
-                        "\"" << fileName << "\". " << e);
+                     "\"" << fileName << "\". " << e.what());
         throw;
     }
     catch (...)
     {
+        delete _data->os;
         delete _data;
         throw;
     }
@@ -275,7 +277,7 @@ MultiPartOutputFile::MultiPartOutputFile(OStream& os,
         delete _data;
         
         REPLACE_EXC (e, "Cannot open image stream "
-        "\"" << os.fileName() << "\". " << e);
+                     "\"" << os.fileName() << "\". " << e.what());
         throw;
     }
     catch (...)

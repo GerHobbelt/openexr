@@ -1,17 +1,19 @@
 
-ADD_LIBRARY ( PyIex ${LIB_TYPE}
-	PyIex.cpp
-)
-
-IF(BUILD_SHARED_LIBS)
-    target_compile_definitions( PyIex PRIVATE -DPYIEX_EXPORTS )
-ENDIF()
+ADD_LIBRARY ( PyIex ${LIB_TYPE} PyIex.cpp)
 
 target_compile_definitions( PyIex PRIVATE PYIEX_BUILD )
 
+IF (WIN32)
+  target_compile_definitions( PyIex
+    PRIVATE OPENEXR_DLL)
+ENDIF()
+
+SET_ILMBASE_INCLUDE_DIRS( PyIex )
+
 TARGET_LINK_LIBRARIES ( PyIex
-	${PYTHON_LIBRARIES}
-	${Boost_LIBRARIES}
+	PUBLIC  IlmBase::Iex${OPENEXR_TARGET_SUFFIX}
+	PRIVATE ${PYTHON_LIBRARIES}
+	PRIVATE ${Boost_LIBRARIES}
 )
 
 INSTALL ( TARGETS PyIex
@@ -19,15 +21,26 @@ INSTALL ( TARGETS PyIex
 	lib
 )
 
+INSTALL (
+  FILES
+    PyIex.h
+    PyIexExport.h
+    PyIexTypeTranslator.h
+
+  DESTINATION
+    include/OpenEXR
+)
+
+
 ADD_LIBRARY ( iexmodule ${LIB_TYPE}
 	iexmodule.cpp
 )
 
 if (WIN32)
 	SET_TARGET_PROPERTIES ( iexmodule
-		PROPERTIES 
+		PROPERTIES
 			PREFIX ""
-			OUTPUT_NAME "iex" 
+			OUTPUT_NAME "iex"
 			SUFFIX ".pyd"
 	)
 else()
@@ -36,11 +49,14 @@ else()
 	)
 endif()
 
+#    IlmBase::Iex${OPENEXR_TARGET_SUFFIX}
 TARGET_LINK_LIBRARIES ( iexmodule
 	PyIex
-	Iex${ILMBASE_LIBSUFFIX}
+	${PYTHON_LIBRARIES}
 	${Boost_LIBRARIES}
 )
+
+SET_ILMBASE_INCLUDE_DIRS( iexmodule )
 
 INSTALL ( TARGETS iexmodule
 	DESTINATION lib/python${PYTHON_VERSION_MAJOR}.${PYTHON_VERSION_MINOR}/site-packages
