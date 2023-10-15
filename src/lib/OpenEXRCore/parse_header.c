@@ -72,7 +72,10 @@ scratch_seq_read (struct _internal_exr_seq_scratch* scr, void* buf, uint64_t sz)
                 outbuf += nread;
                 nCopied += (uint64_t) nread;
             }
-            if (nread <= 0) break;
+            else
+            {
+                break;
+            }
         }
         else
         {
@@ -91,6 +94,11 @@ scratch_seq_read (struct _internal_exr_seq_scratch* scr, void* buf, uint64_t sz)
             }
             else
             {
+                if (nread == 0)
+                    rv = scr->ctxt->report_error (
+                        scr->ctxt,
+                        EXR_ERR_READ_IO,
+                        "End of file attempting to read header");
                 break;
             }
         }
@@ -2072,9 +2080,10 @@ internal_exr_compute_chunk_offset_size (struct _internal_exr_part* curpart)
     const exr_attr_box2i_t   dw           = curpart->data_window;
     const exr_attr_chlist_t* channels     = curpart->channels->chlist;
     uint64_t                 unpackedsize = 0;
-    int64_t                  w;
+    uint64_t                 w;
+    int                      hasLineSample = 0;
 
-    w = ((int64_t) dw.max.x) - ((int64_t) dw.min.x) + 1;
+    w = (uint64_t) (((int64_t) dw.max.x) - ((int64_t) dw.min.x) + 1);
 
     if (curpart->tiles)
     {
@@ -2111,23 +2120,29 @@ internal_exr_compute_chunk_offset_size (struct _internal_exr_part* curpart)
 
         for (int c = 0; c < channels->num_channels; ++c)
         {
-            int32_t  xsamp  = channels->entries[c].x_sampling;
-            int32_t  ysamp  = channels->entries[c].y_sampling;
+            uint64_t xsamp  = (uint64_t) channels->entries[c].x_sampling;
+            uint64_t ysamp  = (uint64_t) channels->entries[c].y_sampling;
             uint64_t cunpsz = 0;
             if (channels->entries[c].pixel_type == EXR_PIXEL_HALF)
                 cunpsz = 2;
             else
                 cunpsz = 4;
-            unpackedsize +=
-                (cunpsz *
-                 (uint64_t) (((uint64_t) tiledesc->x_size + (uint64_t) xsamp - 1) / (uint64_t) xsamp) *
-                 (uint64_t) (((uint64_t) tiledesc->y_size + (uint64_t) ysamp - 1) / (uint64_t) ysamp));
+            cunpsz *= (((uint64_t) tiledesc->x_size + xsamp - 1) / xsamp);
+            if (ysamp > 1)
+            {
+                hasLineSample = 1;
+                cunpsz *= (((uint64_t) tiledesc->y_size + ysamp - 1) / ysamp);
+            }
+            else
+                cunpsz *= (uint64_t) tiledesc->y_size;
+            unpackedsize += cunpsz;
         }
         curpart->unpacked_size_per_chunk = unpackedsize;
+        curpart->chan_has_line_sampling  = ((int16_t) hasLineSample);
     }
     else
     {
-        int linePerChunk;
+        uint64_t linePerChunk, h;
         switch (curpart->comp_type)
         {
             case EXR_COMPRESSION_NONE:
@@ -2146,25 +2161,31 @@ internal_exr_compute_chunk_offset_size (struct _internal_exr_part* curpart)
                 return -1;
         }
 
-        curpart->lines_per_chunk = linePerChunk;
         for (int c = 0; c < channels->num_channels; ++c)
         {
-            int32_t  xsamp  = channels->entries[c].x_sampling;
-            int32_t  ysamp  = channels->entries[c].y_sampling;
+            uint64_t xsamp  = (uint64_t) channels->entries[c].x_sampling;
+            uint64_t ysamp  = (uint64_t) channels->entries[c].y_sampling;
             uint64_t cunpsz = 0;
             if (channels->entries[c].pixel_type == EXR_PIXEL_HALF)
                 cunpsz = 2;
             else
                 cunpsz = 4;
-            unpackedsize +=
-                (cunpsz * (uint64_t) ((w + xsamp - 1) / xsamp) *
-                 (uint64_t) ((linePerChunk + ysamp - 1) / ysamp));
+            cunpsz *= w / xsamp;
+            cunpsz *= linePerChunk;
+            if (ysamp > 1)
+            {
+                hasLineSample = 1;
+                if (linePerChunk > 1) cunpsz *= linePerChunk / ysamp;
+            }
+            unpackedsize += cunpsz;
         }
-        curpart->unpacked_size_per_chunk = unpackedsize;
 
-        /* h = max - min + 1, but to do size / divide by round,
-         * we'd do linePerChunk - 1, so the math cancels */
-        retval = (dw.max.y - dw.min.y + linePerChunk) / linePerChunk;
+        curpart->unpacked_size_per_chunk = unpackedsize;
+        curpart->lines_per_chunk         = ((int16_t) linePerChunk);
+        curpart->chan_has_line_sampling  = ((int16_t) hasLineSample);
+
+        h      = (uint64_t) dw.max.y - (uint64_t) dw.min.y + 1;
+        retval = (int32_t) ((h + linePerChunk - 1) / linePerChunk);
     }
     return retval;
 }

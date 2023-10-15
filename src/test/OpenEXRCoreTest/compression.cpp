@@ -49,6 +49,15 @@ using namespace IMATH_NAMESPACE;
 namespace IMF = OPENEXR_IMF_NAMESPACE;
 using namespace IMF;
 
+#if (IMATH_VERSION_MAJOR < 3) || (IMATH_VERSION_MAJOR == 3 && IMATH_VERSION_MINOR < 1)
+inline float imath_half_to_float( uint16_t a )
+{
+    half tmp;
+    tmp.setBits( a );
+    return static_cast<float>( tmp );
+}
+#endif
+
 ////////////////////////////////////////
 
 inline int
@@ -1333,8 +1342,9 @@ testHUF (const std::string& tempdir)
 {
     uint64_t esize = internal_exr_huf_compress_spare_bytes ();
     uint64_t dsize = internal_exr_huf_decompress_spare_bytes ();
-    EXRCORE_TEST (esize == 65537 * (8 + 8 + 8 + 4));
-    EXRCORE_TEST (dsize == (65537 * 8 + (1 << 14) * 16));
+    EXRCORE_TEST (esize == 65537 * (8 + 8 + sizeof (uint64_t*) + 4));
+    EXRCORE_TEST (
+        dsize == (65537 * 8 + (1 << 14) * (sizeof (uint32_t*) + 4 + 4)));
 
     std::vector<uint8_t> hspare;
 
