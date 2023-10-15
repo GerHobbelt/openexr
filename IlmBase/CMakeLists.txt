@@ -27,16 +27,17 @@ INCLUDE ( CPack )
 
 # Allow the developer to select if Dynamic or Static libraries are built
 OPTION (BUILD_SHARED_LIBS "Build Shared Libraries" ON)
+OPTION (BUILD_STATIC_LIBS "Build Static Libraries" OFF)
 
-# Allow the developer to select if Dynamic or Static libraries are built
+# Enable namespace versioning
 OPTION (NAMESPACE_VERSIONING "Namespace Versioning" ON)
 
 OPTION (FORCE_CXX03 "Force CXX03" OFF)
 IF (FORCE_CXX03)
   ADD_DEFINITIONS ( -std=c++03 )
 ELSE (FORCE_CXX03)
-  # VP18 switches to c++14, so let's do that
-  SET(CMAKE_CXX_STANDARD 14)
+  # VP18 switches to c++14, so let's do that by default
+  SET(CMAKE_CXX_STANDARD 14 CACHE STRING "C++ ISO Standard")
   # but switch gnu++14 or other extensions off for portability
   SET(CMAKE_CXX_EXTENSIONS OFF)
 ENDIF ()
@@ -104,19 +105,15 @@ MACRO(GET_TARGET_PROPERTY_WITH_DEFAULT _variable _target _property _default_valu
    INSTALL( FILES ${_laname} DESTINATION ${CMAKE_INSTALL_PREFIX}${_install_DIR})
  ENDMACRO(CREATE_LIBTOOL_FILE)
 
-SET (LIB_TYPE STATIC)
-IF (BUILD_SHARED_LIBS)
-  # User wants to build Dynamic Libraries, so change the LIB_TYPE variable to CMake keyword 'SHARED'
-  SET (LIB_TYPE SHARED)
-  IF (WIN32)
-    ADD_DEFINITIONS(-DOPENEXR_DLL)
-  ENDIF ()
-ENDIF (BUILD_SHARED_LIBS)
-
 IF (WIN32)
   SET (RUNTIME_DIR bin)
 ELSE ()
   SET (RUNTIME_DIR lib)
+ENDIF ()
+
+SET (ILMBASE_LIBSUFFIX "")
+IF (NAMESPACE_VERSIONING)
+  SET ( ILMBASE_LIBSUFFIX "-${ILMBASE_VERSION_API}" )
 ENDIF ()
 
 ADD_SUBDIRECTORY ( Half )
@@ -142,9 +139,10 @@ ENDIF ()
 
 IF (FORCE_CXX03)
   FILE ( APPEND  ${CMAKE_CURRENT_BINARY_DIR}/config/IlmBaseConfig.h "#define ILMBASE_FORCE_CXX03 1\n" )
-ELSE ()
+ELSEIF (NOT WIN32)
   # really only care about c++11 right now for the threading bits, but this can be changed to 14
   # when needed...
+  # Note that the __cplusplus check is not valid under MSVC
   FILE ( APPEND  ${CMAKE_CURRENT_BINARY_DIR}/config/IlmBaseConfig.h "#if __cplusplus < 201103L\n# error \"Modern C++ 11/14 not enabled but force cxx03 not set\"\n#endif\n" )
 ENDIF ()
 
@@ -175,21 +173,6 @@ FILE ( APPEND ${CMAKE_CURRENT_BINARY_DIR}/config/IlmBaseConfig.h "
                              (ILMBASE_VERSION_MINOR << 16) | \\
                              (ILMBASE_VERSION_PATCH <<  8))
 ")
-
-SET (ILMBASE_LIBSUFFIX "")
-IF (NAMESPACE_VERSIONING)
-  SET ( ILMBASE_LIBSUFFIX "-${ILMBASE_VERSION_API}" )
-ENDIF ()
-
-SET (ILMBASE_LIBRARY_NAMES Half Iex Imath IlmThread IexMath)
-FOREACH (LIBNAME ${ILMBASE_LIBRARY_NAMES})
-  SET_TARGET_PROPERTIES ( ${LIBNAME}
-    PROPERTIES
-    VERSION 12.0.0
-    SOVERSION 12
-    OUTPUT_NAME "${LIBNAME}${ILMBASE_LIBSUFFIX}"
-    )
-ENDFOREACH()
 
 IF ( NOT WIN32 )
   CREATE_LIBTOOL_FILE ( Half /lib )

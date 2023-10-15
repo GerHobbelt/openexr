@@ -30,8 +30,14 @@ ADD_LIBRARY ( PyImath ${LIB_TYPE}
     PyImathVec4fd.cpp
     PyImathVec4siArray.cpp
     PyImathVec4si.cpp
-
 )
+
+IF(BUILD_SHARED_LIBS)
+    target_compile_definitions( PyImath PRIVATE -DPYIMATH_EXPORTS )
+ENDIF()
+
+target_compile_definitions( PyImath PRIVATE -DPYIMATH_BUILD )
+
 
 TARGET_LINK_LIBRARIES ( PyImath
 	Iex${ILMBASE_LIBSUFFIX}
@@ -46,15 +52,29 @@ INSTALL ( TARGETS PyImath
 	lib
 )
 
+INSTALL (DIRECTORY ./
+    DESTINATION include
+    FILES_MATCHING PATTERN "*.h"
+)
+
 ADD_LIBRARY ( imathmodule ${LIB_TYPE}
     imathmodule.cpp
     PyImathFun.cpp
-    PyImathBasicTypes.cpp 
+    PyImathBasicTypes.cpp
 )
 
-SET_TARGET_PROPERTIES ( imathmodule
-	PROPERTIES PREFIX "" SUFFIX ".so" BUILD_WITH_INSTALL_RPATH ON
-)
+if (WIN32)
+    SET_TARGET_PROPERTIES ( imathmodule
+        PROPERTIES 
+            PREFIX ""
+            OUTPUT_NAME "imath" 
+            SUFFIX ".pyd"
+    )
+else()
+    SET_TARGET_PROPERTIES ( imathmodule
+        PROPERTIES PREFIX "" SUFFIX ".so" BUILD_WITH_INSTALL_RPATH ON
+    )
+endif()
 
 TARGET_LINK_LIBRARIES ( imathmodule
 	PyImath
