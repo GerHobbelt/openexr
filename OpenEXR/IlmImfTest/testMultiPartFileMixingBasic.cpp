@@ -1393,8 +1393,11 @@ killOffsetTables (const std::string & fn)
             
             
             //length of attribute
-            fread(&length,4,1,f);
-    	    if (!GLOBAL_SYSTEM_LITTLE_ENDIAN)
+            size_t nr = fread(&length,4,1,f);
+            if (nr != 1)
+                throw IEX_NAMESPACE::IoExc (
+                    "Unable to read attribute length");
+            if (!GLOBAL_SYSTEM_LITTLE_ENDIAN)
     	    {
     		length = bswap_32(length);
     	    }

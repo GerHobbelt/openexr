@@ -1241,7 +1241,10 @@ modifyType (bool modify_version)
             
             
             //length of attribute
-            fread(&length,4,1,f);
+            size_t nr = fread (&length,4,1,f);
+            if ( nr != 1 )
+                throw IEX_NAMESPACE::IoExc (
+                    "unable to read length of attribute");
             if (!GLOBAL_SYSTEM_LITTLE_ENDIAN)
             {
         	length = bswap_32(length);
