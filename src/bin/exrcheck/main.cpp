@@ -45,19 +45,33 @@ exrCheck(const char* filename, bool reduceMemory, bool reduceTime, bool useStrea
       // open file as stream, check size
       //
       ifstream instream(filename,ifstream::binary);
+
+      if ( ! instream )
+      {
+          cerr << "internal error: bad file '" << filename << "' for in-memory stream" << endl;
+          return true;
+      }
+
       instream.seekg(0,instream.end);
       streampos length = instream.tellg();
       instream.seekg(0,instream.beg);
+
+      const uintptr_t kMaxSize = uintptr_t(-1) / 4;
+      if (length < 0 || length > (streampos)kMaxSize)
+      {
+          cerr << "internal error: bad file length " << length << " for in-memory stream" << endl;
+          return true;
+      }
 
       //
       // read into memory
       //
       vector<char> data(length);
       instream.read( data.data() , length);
-      if (instream.bad())
+      if (instream.gcount() != length)
       {
           cerr << "internal error: failed to read file " << filename << endl;
-
+          return true;
       }
       return checkOpenEXRFile ( data.data(), length, reduceMemory, reduceTime, enableCoreCheck);
   }

@@ -27,6 +27,7 @@
 
 #include <vector>
 #include <algorithm>
+#include <stdlib.h>
 
 OPENEXR_IMF_INTERNAL_NAMESPACE_SOURCE_ENTER
 
@@ -563,8 +564,8 @@ readDeepTile(T& in,bool reduceMemory , bool reduceTime)
                                                    reinterpret_cast<char*>(&localSampleCount[0][0]),
                                                    sizeof (unsigned int) * 1,
                                                    sizeof (unsigned int) * width,
+                                                   1, 1, // x/ysampling
                                                    0.0, // fill
-                                                   1 , 1, // x/ysampling
                                                    true,  // relative x
                                                    true  // relative y
                                                   )
@@ -583,8 +584,8 @@ readDeepTile(T& in,bool reduceMemory , bool reduceTime)
                                             pointerSize * 1,
                                             pointerSize * width,
                                             sampleSize,
+                                            1, 1,
                                             0.0,
-                                            1 , 1,
                                             true,
                                             true
                                            ) );
@@ -1180,9 +1181,11 @@ bool readCoreScanlinePart(exr_context_t f, int part, bool reduceMemory, bool red
     if (rv != EXR_ERR_SUCCESS)
         return true;
 
-    for (int y = datawin.min.y; y <= datawin.max.y; y += lines_per_chunk)
+    for (uint64_t chunk = 0; chunk < height; chunk += lines_per_chunk)
     {
         exr_chunk_info_t cinfo = { 0 };
+        int y = ((int) chunk) + datawin.min.y;
+
         rv = exr_read_scanline_chunk_info (f, part, y, &cinfo);
         if (rv != EXR_ERR_SUCCESS)
         {
@@ -1349,10 +1352,10 @@ bool readCoreTiledPart(exr_context_t f, int part, bool reduceMemory, bool reduce
                         {
                             exr_coding_channel_info_t & outc = decoder.channels[c];
                             // fake addr for default rouines
-                            outc.decode_to_ptr = (uint8_t*)0x1000;
+                            outc.decode_to_ptr = (uint8_t*)0x1000 + bytes;
                             outc.user_pixel_stride = outc.user_bytes_per_element;
                             outc.user_line_stride = outc.user_pixel_stride * curtw;
-                            bytes += curtw * (uint64_t)outc.user_bytes_per_element * (uint64_t)curth;
+                            bytes += (uint64_t)curtw * (uint64_t)outc.user_bytes_per_element * (uint64_t)curth;
                         }
 
                         doread = true;
@@ -1390,8 +1393,8 @@ bool readCoreTiledPart(exr_context_t f, int part, bool reduceMemory, bool reduce
                             exr_coding_channel_info_t & outc = decoder.channels[c];
                             outc.decode_to_ptr = dptr;
                             outc.user_pixel_stride = outc.user_bytes_per_element;
-                            outc.user_line_stride = outc.user_pixel_stride * curth;
-                            dptr += curtw * (uint64_t)outc.user_bytes_per_element * (uint64_t)curth;
+                            outc.user_line_stride = outc.user_pixel_stride * curtw;
+                            dptr += (uint64_t)curtw * (uint64_t)outc.user_bytes_per_element * (uint64_t)curth;
                         }
 
                         rv = exr_decoding_run (f, part, &decoder);
@@ -1453,6 +1456,24 @@ bool checkCoreFile(exr_context_t f, bool reduceMemory, bool reduceTime)
 
 ////////////////////////////////////////
 
+static void
+core_error_handler_cb (exr_const_context_t f, int code, const char* msg)
+{
+    if (getenv ("EXR_CHECK_ENABLE_PRINTS") != NULL)
+    {
+        const char* fn;
+        if (EXR_ERR_SUCCESS != exr_get_file_name (f, &fn)) fn = "<error>";
+        fprintf (
+            stderr,
+            "ERROR '%s' (%s): %s\n",
+            fn,
+            exr_get_error_code_as_string (code),
+            msg);
+    }
+}
+
+////////////////////////////////////////
+
 bool
 runCoreChecks (const char *filename, bool reduceMemory, bool reduceTime)
 {
@@ -1460,6 +1481,8 @@ runCoreChecks (const char *filename, bool reduceMemory, bool reduceTime)
     bool hadfail = false;
     exr_context_t f;
     exr_context_initializer_t cinit = EXR_DEFAULT_CONTEXT_INITIALIZER;
+
+    cinit.error_handler_fn = &core_error_handler_cb;
 
     rv = exr_start_read (&f, filename, &cinit);
     if (rv != EXR_ERR_SUCCESS)
@@ -1480,7 +1503,7 @@ struct memdata
     size_t bytes;
 };
 
-int64_t
+static int64_t
 memstream_read (
     exr_const_context_t f,
     void* userdata,
@@ -1504,7 +1527,7 @@ memstream_read (
     return rdsz;
 }
 
-int64_t memstream_size (
+static int64_t memstream_size (
     exr_const_context_t ctxt, void* userdata)
 {
     if (userdata)
@@ -1530,6 +1553,7 @@ runCoreChecks (const char *data, size_t numBytes, bool reduceMemory, bool reduce
     cinit.user_data = &md;
     cinit.read_fn = &memstream_read;
     cinit.size_fn = &memstream_size;
+    cinit.error_handler_fn = &core_error_handler_cb;
 
     rv = exr_start_read (&f, "<memstream>", &cinit);
     if (rv != EXR_ERR_SUCCESS)

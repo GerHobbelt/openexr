@@ -51,17 +51,20 @@ static exr_result_t
 extract_chunk_table (
     const struct _internal_exr_context* ctxt,
     const struct _internal_exr_part*    part,
-    uint64_t**                          chunktable)
+    uint64_t**                          chunktable,
+    uint64_t*                           chunkminoffset)
 {
-    uint64_t* ctable = NULL;
+    uint64_t* ctable     = NULL;
+    uint64_t  chunkoff   = part->chunk_table_offset;
+    uint64_t  chunkbytes = sizeof (uint64_t) * (uint64_t) part->chunk_count;
+
+    *chunkminoffset = chunkoff + chunkbytes;
 
     ctable = (uint64_t*) atomic_load (
         EXR_CONST_CAST (atomic_uintptr_t*, &(part->chunk_table)));
     if (ctable == NULL)
     {
-        uint64_t  chunkoff   = part->chunk_table_offset;
-        uint64_t  chunkbytes = sizeof (uint64_t) * (uint64_t) part->chunk_count;
-        int64_t   nread      = 0;
+        int64_t   nread = 0;
         uintptr_t eptr = 0, nptr = 0;
 
         exr_result_t rv;
@@ -71,16 +74,14 @@ extract_chunk_table (
                 ctxt, EXR_ERR_INVALID_ARGUMENT, "Invalid file with no chunks");
 
         if (ctxt->file_size > 0 &&
-             chunkbytes + chunkoff > (uint64_t) ctxt->file_size)
-           return ctxt->print_error (
-               ctxt,
-               EXR_ERR_INVALID_ARGUMENT,
-               "chunk table size (%" PRIu64
-               ") too big for file size (%" PRId64 ")",
-               chunkbytes,
-               ctxt->file_size);
-
-
+            chunkbytes + chunkoff > (uint64_t) ctxt->file_size)
+            return ctxt->print_error (
+                ctxt,
+                EXR_ERR_INVALID_ARGUMENT,
+                "chunk table size (%" PRIu64 ") too big for file size (%" PRId64
+                ")",
+                chunkbytes,
+                ctxt->file_size);
 
         ctable = (uint64_t*) ctxt->alloc_fn (chunkbytes);
         if (ctable == NULL)
@@ -177,7 +178,12 @@ compute_chunk_unpack_size (
             if (curc->y_sampling > 1)
             {
                 if (height > 1)
-                    chansz /= ((uint64_t) curc->y_sampling);
+                {
+                    if (curc->y_sampling > height)
+                        chansz /= ((uint64_t) height);
+                    else
+                        chansz /= ((uint64_t) curc->y_sampling);
+                }
                 else if ((y % ((int) curc->y_sampling)) != 0)
                     chansz = 0;
             }
@@ -200,7 +206,7 @@ exr_read_scanline_chunk_info (
     int32_t          data[3];
     int64_t          ddata[3];
     int64_t          fsize;
-    uint64_t         dataoff;
+    uint64_t         chunkmin, dataoff;
     exr_attr_box2i_t dw;
     uint64_t*        ctable;
     EXR_PROMOTE_READ_CONST_CONTEXT_AND_PART_OR_ERROR (ctxt, part_index);
@@ -265,10 +271,23 @@ exr_read_scanline_chunk_info (
     cinfo->level_y = 0;
 
     /* need to read from the file to get the packed chunk size */
-    rv = extract_chunk_table (pctxt, part, &ctable);
+    rv = extract_chunk_table (pctxt, part, &ctable, &chunkmin);
     if (rv != EXR_ERR_SUCCESS) return rv;
 
+    fsize = pctxt->file_size;
+
     dataoff = ctable[cidx];
+    if (dataoff < chunkmin || (fsize > 0 && dataoff > (uint64_t) fsize))
+    {
+        return pctxt->print_error (
+            pctxt,
+            EXR_ERR_BAD_CHUNK_LEADER,
+            "Corrupt chunk offset table: scanline %d, chunk index %d recorded at file offset %" PRIu64,
+            y,
+            cidx,
+            dataoff);
+    }
+
     /* multi part files have the part for validation */
     rdcnt = (pctxt->is_multipart) ? 2 : 1;
     /* deep has 64-bit data, so be variable about what we read */
@@ -314,7 +333,6 @@ exr_read_scanline_chunk_info (
             miny);
     }
 
-    fsize = pctxt->file_size;
     if (part->storage_mode == EXR_STORAGE_DEEP_SCANLINE)
     {
         rv = pctxt->do_read (
@@ -586,11 +604,12 @@ exr_read_tile_chunk_info (
     int32_t                    data[6];
     int32_t*                   tdata;
     int32_t                    cidx, ntoread;
-    uint64_t                   dataoff;
-    int64_t                    fsize, tend, dend;
+    uint64_t                   chunkmin, dataoff;
+    int64_t                    nread, fsize, tend, dend;
     const exr_attr_chlist_t*   chanlist;
     const exr_attr_tiledesc_t* tiledesc;
-    int                        tilew, tileh, unpacksize = 0;
+    int                        tilew, tileh;
+    uint64_t                   texels, unpacksize = 0;
     uint64_t*                  ctable;
     EXR_PROMOTE_READ_CONST_CONTEXT_AND_PART_OR_ERROR (ctxt, part_index);
 
@@ -656,14 +675,15 @@ exr_read_tile_chunk_info (
     cinfo->level_y = (uint8_t) levely;
 
     chanlist = part->channels->chlist;
+    texels   = (uint64_t) tilew * (uint64_t) tileh;
     for (int c = 0; c < chanlist->num_channels; ++c)
     {
         const exr_attr_chlist_entry_t* curc = (chanlist->entries + c);
         unpacksize +=
-            tilew * tileh * ((curc->pixel_type == EXR_PIXEL_HALF) ? 2 : 4);
+            texels * (uint64_t) ((curc->pixel_type == EXR_PIXEL_HALF) ? 2 : 4);
     }
 
-    rv = extract_chunk_table (pctxt, part, &ctable);
+    rv = extract_chunk_table (pctxt, part, &ctable, &chunkmin);
     if (rv != EXR_ERR_SUCCESS) return rv;
 
     if (part->storage_mode == EXR_STORAGE_DEEP_TILED)
@@ -678,28 +698,44 @@ exr_read_tile_chunk_info (
     else
         ntoread = 5;
 
+    fsize = pctxt->file_size;
+
     dataoff = ctable[cidx];
-    rv      = pctxt->do_read (
+    if (dataoff < chunkmin || (fsize > 0 && dataoff > (uint64_t) fsize))
+    {
+        return pctxt->print_error (
+            pctxt,
+            EXR_ERR_BAD_CHUNK_LEADER,
+            "Corrupt chunk offset table: tile (%d, %d), level (%d, %d), chunk index %d recorded at file offset %" PRIu64,
+            tilex,
+            tiley,
+            levelx,
+            levely,
+            cidx,
+            dataoff);
+    }
+
+    rv = pctxt->do_read (
         pctxt,
         data,
         (uint64_t) (ntoread) * sizeof (int32_t),
         &dataoff,
-        &fsize,
+        &nread,
         EXR_MUST_READ_ALL);
     if (rv != EXR_ERR_SUCCESS)
     {
         return pctxt->print_error (
             pctxt,
             rv,
-            "Request for tile (%d, %d), level (%d, %d) but unable to read %" PRId64
-            " bytes from offset %" PRId64 ", got %" PRId64 " bytes",
+            "Unable to read information block for tile (%d, %d), level (%d, %d): request %" PRIu64
+            " bytes from offset %" PRIu64 ", got %" PRIu64 " bytes",
             tilex,
             tiley,
             levelx,
             levely,
             (uint64_t) (ntoread) * sizeof (int32_t),
             ctable[cidx],
-            fsize);
+            (uint64_t) nread);
     }
     priv_to_native32 (data, ntoread);
 
@@ -711,7 +747,7 @@ exr_read_tile_chunk_info (
             return pctxt->print_error (
                 pctxt,
                 EXR_ERR_BAD_CHUNK_LEADER,
-                "Preparing to read tile (%d, %d), level (%d, %d) (chunk %d), found corrupt leader: part says %d, expected %d",
+                "Corrupt tile (%d, %d), level (%d, %d) (chunk %d): bad part number (%d, expect %d)",
                 tilex,
                 tiley,
                 levelx,
@@ -727,7 +763,7 @@ exr_read_tile_chunk_info (
         return pctxt->print_error (
             pctxt,
             EXR_ERR_BAD_CHUNK_LEADER,
-            "Preparing to read tile (%d, %d), level (%d, %d) (chunk %d), found corrupt leader: found tile x %d, expect %d",
+            "Corrupt tile (%d, %d), level (%d, %d) (chunk %d): bad tile x coordinate (%d, expect %d)",
             tilex,
             tiley,
             levelx,
@@ -741,7 +777,7 @@ exr_read_tile_chunk_info (
         return pctxt->print_error (
             pctxt,
             EXR_ERR_BAD_CHUNK_LEADER,
-            "Preparing to read tile (%d, %d), level (%d, %d) (chunk %d), found corrupt leader: found tile y %d, expect %d",
+            "Corrupt tile (%d, %d), level (%d, %d) (chunk %d): bad tile Y coordinate (%d, expect %d)",
             tilex,
             tiley,
             levelx,
@@ -755,7 +791,7 @@ exr_read_tile_chunk_info (
         return pctxt->print_error (
             pctxt,
             EXR_ERR_BAD_CHUNK_LEADER,
-            "Preparing to read tile (%d, %d), level (%d, %d) (chunk %d), found corrupt leader: found tile level x %d, expect %d",
+            "Corrupt tile (%d, %d), level (%d, %d) (chunk %d): bad tile mip/rip level X (%d, expect %d)",
             tilex,
             tiley,
             levelx,
@@ -769,7 +805,7 @@ exr_read_tile_chunk_info (
         return pctxt->print_error (
             pctxt,
             EXR_ERR_BAD_CHUNK_LEADER,
-            "Preparing to read tile (%d, %d), level (%d, %d) (chunk %d), found corrupt leader: found tile level y %d, expect %d",
+            "Corrupt tile (%d, %d), level (%d, %d) (chunk %d): bad tile mip/rip level Y (%d, expect %d)",
             tilex,
             tiley,
             levelx,
@@ -779,7 +815,6 @@ exr_read_tile_chunk_info (
             levely);
     }
 
-    fsize = pctxt->file_size;
     if (part->storage_mode == EXR_STORAGE_DEEP_TILED)
     {
         int64_t ddata[3];
@@ -793,12 +828,12 @@ exr_read_tile_chunk_info (
         if (rv != EXR_ERR_SUCCESS) { return rv; }
         priv_to_native64 (ddata, 3);
 
-        if (ddata[0] < 0)
+        if (ddata[0] < 0 || (ddata[0] == 0 && (ddata[1] != 0 || ddata[2] != 0)))
         {
             return pctxt->print_error (
                 pctxt,
                 EXR_ERR_BAD_CHUNK_LEADER,
-                "Preparing to read deep tile (%d, %d), level (%d, %d) (chunk %d), found corrupt leader: invalid sample table size %" PRId64,
+                "Corrupt deep tile (%d, %d), level (%d, %d) (chunk %d): invalid sample table size %" PRId64,
                 tilex,
                 tiley,
                 levelx,
@@ -808,12 +843,13 @@ exr_read_tile_chunk_info (
         }
 
         /* not all compressors support 64-bit */
-        if (ddata[1] < 0 || ddata[1] > (int64_t) INT32_MAX)
+        if (ddata[1] < 0 || ddata[1] > (int64_t) INT32_MAX ||
+            (ddata[1] == 0 && ddata[2] != 0))
         {
             return pctxt->print_error (
                 pctxt,
                 EXR_ERR_BAD_CHUNK_LEADER,
-                "Preparing to read deep tile (%d, %d), level (%d, %d) (chunk %d), found corrupt leader: invalid packed data size %" PRId64,
+                "Corrupt deep tile (%d, %d), level (%d, %d) (chunk %d): invalid packed data size %" PRId64,
                 tilex,
                 tiley,
                 levelx,
@@ -821,12 +857,14 @@ exr_read_tile_chunk_info (
                 cidx,
                 ddata[1]);
         }
-        if (ddata[2] < 0 || ddata[2] > (int64_t) INT32_MAX)
+
+        if (ddata[2] < 0 || ddata[2] > (int64_t) INT32_MAX ||
+            (ddata[2] == 0 && ddata[1] != 0))
         {
             return pctxt->print_error (
                 pctxt,
                 EXR_ERR_BAD_CHUNK_LEADER,
-                "Preparing to read deep tile (%d, %d), level (%d, %d) (chunk %d), found corrupt leader: invalid packed data size %" PRId64,
+                "Corrupt deep tile (%d, %d), level (%d, %d) (chunk %d): invalid unpacked size %" PRId64,
                 tilex,
                 tiley,
                 levelx,
@@ -848,7 +886,7 @@ exr_read_tile_chunk_info (
             return pctxt->print_error (
                 pctxt,
                 EXR_ERR_BAD_CHUNK_LEADER,
-                "Preparing to read deep tile (%d, %d), level (%d, %d) (chunk %d), found corrupt leader: sample table and data result in access past end of the file: sample table size %" PRId64
+                "Corrupt deep tile (%d, %d), level (%d, %d) (chunk %d): access past end of the file: sample table size %" PRId64
                 " + data size %" PRId64 " larger than file %" PRId64,
                 tilex,
                 tiley,
@@ -862,25 +900,45 @@ exr_read_tile_chunk_info (
     }
     else
     {
-        if (tdata[4] < 0 || tdata[4] > unpacksize ||
-            (fsize > 0 && tdata[4] > fsize))
+        if (tdata[4] < 0 || ((uint64_t) tdata[4]) > unpacksize ||
+            (tdata[4] == 0 && unpacksize != 0))
         {
             return pctxt->print_error (
                 pctxt,
                 EXR_ERR_BAD_CHUNK_LEADER,
-                "Preparing to read deep tile (%d, %d), level (%d, %d) (chunk %d), found corrupt leader: invalid packed size (%d) vs unpacked size (%d), and file size %" PRId64,
+                "Corrupt tile (%d, %d), level (%d, %d) (chunk %d): invalid packed size %d vs unpacked size %" PRIu64,
                 tilex,
                 tiley,
                 levelx,
                 levely,
                 cidx,
                 (int) tdata[4],
-                (int) unpacksize,
-                fsize);
+                unpacksize);
         }
+        else if (fsize > 0)
+        {
+            uint64_t finpos = dataoff + (uint64_t) tdata[4];
+            if (finpos > fsize)
+            {
+                return pctxt->print_error (
+                    pctxt,
+                    EXR_ERR_BAD_CHUNK_LEADER,
+                    "Corrupt tile (%d, %d), level (%d, %d) (chunk %d): access past end of file: packed size (%d) at offset %" PRIu64
+                    " vs size of file %" PRId64,
+                    tilex,
+                    tiley,
+                    levelx,
+                    levely,
+                    cidx,
+                    (int) tdata[4],
+                    dataoff,
+                    fsize);
+            }
+        }
+
         cinfo->packed_size              = (uint64_t) tdata[4];
-        cinfo->unpacked_size            = (uint64_t) unpacksize;
-        cinfo->data_offset              = (uint64_t) dataoff;
+        cinfo->unpacked_size            = unpacksize;
+        cinfo->data_offset              = dataoff;
         cinfo->sample_count_data_offset = 0;
         cinfo->sample_count_table_size  = 0;
     }
