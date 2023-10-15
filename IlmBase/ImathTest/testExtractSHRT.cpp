@@ -32,6 +32,9 @@
 //
 ///////////////////////////////////////////////////////////////////////////
 
+#ifdef NDEBUG
+#    undef NDEBUG
+#endif
 
 #include <testExtractSHRT.h>
 #include "ImathMatrixAlgo.h"
@@ -67,10 +70,14 @@ testMatrix (const M33f M)
     // angle back to a matrix, N.
     //
 
-    V2f s, t;
-    float h, r;
+    V2f s(0.f), t(0.f);
+    float h, r= 0.f;
   
-    extractSHRT (M, s, h, r, t, true);
+    if (!extractSHRT (M, s, h, r, t, true))
+    {
+        cout << "Unable to extractSHRT" << std::endl;
+        assert(false);
+    }
 
     M33f N;
 
@@ -443,4 +450,3 @@ testExtractSHRT ()
 	cerr << "  Caught exception: " << e.what () << endl;
     }
 }
-

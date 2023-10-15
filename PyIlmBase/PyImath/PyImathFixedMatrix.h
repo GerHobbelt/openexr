@@ -40,6 +40,10 @@
 #include "PyImathFixedArray.h"
 #include "PyImathOperators.h"
 
+#ifdef __clang__
+#    pragma clang diagnostic push
+#    pragma clang diagnostic ignored "-Wself-assign-overloaded"
+#endif
 namespace PyImath {
 
 //
@@ -130,6 +134,7 @@ class FixedMatrix
 
     void extract_slice_indices(PyObject *index, Py_ssize_t &start, Py_ssize_t &end, Py_ssize_t &step, Py_ssize_t &slicelength) const
     {
+        slicelength = 0;
         if (PySlice_Check(index)) {
 #if PY_MAJOR_VERSION > 2
             PyObject *slice = index;
@@ -540,5 +545,8 @@ static void add_bitwise_math_functions(boost::python::class_<FixedMatrix<T> > &c
 
 
 }
+#ifdef __clang__
+#    pragma clang diagnostic pop
+#endif
 
 #endif

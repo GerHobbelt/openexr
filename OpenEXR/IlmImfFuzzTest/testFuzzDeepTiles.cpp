@@ -32,7 +32,9 @@
 //
 ///////////////////////////////////////////////////////////////////////////
 
-
+#ifdef NDEBUG
+#    undef NDEBUG
+#endif
 
 #include "fuzzFile.h"
 
@@ -198,7 +200,7 @@ void generateRandomFile(const char filename[], int channelCount, int parts , Com
                                 for (int k = 0; k < channelCount; k++)
                                 {
                                     data[k][dwy][dwx] = new float[sampleCount[dwy][dwx]];
-                                    for (int l = 0; l < sampleCount[dwy][dwx]; l++)
+                                    for (unsigned int l = 0; l < sampleCount[dwy][dwx]; l++)
                                     {
                                         ((float*)data[k][dwy][dwx])[l] = (dwy * width + dwx) % 2049;
                                     }

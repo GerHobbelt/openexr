@@ -32,6 +32,10 @@
 //
 ///////////////////////////////////////////////////////////////////////////
 
+#ifdef NDEBUG
+#    undef NDEBUG
+#endif
+
 #include "testDeepScanLineBasic.h"
 
 
@@ -127,7 +131,7 @@ void generateRandomFile (const std::string filename,
 
     for (int i = 0; i < channelCount; i++)
     {
-        PixelType type;
+        PixelType type = NUM_PIXELTYPES;
         if (channelTypes[i] == 0)
             type = IMF::UINT;
         if (channelTypes[i] == 1)
@@ -139,7 +143,7 @@ void generateRandomFile (const std::string filename,
         ss << i;
         string str = ss.str();
 
-        int sampleSize;
+        int sampleSize = 0;
         if (channelTypes[i] == 0) sampleSize = sizeof (unsigned int);
         if (channelTypes[i] == 1) sampleSize = sizeof (half);
         if (channelTypes[i] == 2) sampleSize = sizeof (float);
@@ -179,7 +183,7 @@ void generateRandomFile (const std::string filename,
                         data[k][i][j] = new half[sampleCount[i][j]];
                     if (channelTypes[k] == 2)
                         data[k][i][j] = new float[sampleCount[i][j]];
-                    for (int l = 0; l < sampleCount[i][j]; l++)
+                    for (unsigned int l = 0; l < sampleCount[i][j]; l++)
                     {
                         if (channelTypes[k] == 0)
                             ((unsigned int*)data[k][i][j])[l] = (i * width + j) % 2049;
@@ -214,7 +218,7 @@ void generateRandomFile (const std::string filename,
                         data[k][i][j] = new half[sampleCount[i][j]];
                     if (channelTypes[k] == 2)
                         data[k][i][j] = new float[sampleCount[i][j]];
-                    for (int l = 0; l < sampleCount[i][j]; l++)
+                    for (unsigned int l = 0; l < sampleCount[i][j]; l++)
                     {
                         if (channelTypes[k] == 0)
                             ((unsigned int*)data[k][i][j])[l] = (i * width + j) % 2049;
@@ -298,7 +302,7 @@ void readFile (const std::string & filename,
         }
         if(!randomChannels || read_channel[i]==1)
 	{
-            PixelType type;
+            PixelType type = NUM_PIXELTYPES;
             if (channelTypes[i] == 0)
                 type = IMF::UINT;
             if (channelTypes[i] == 1)
@@ -310,7 +314,7 @@ void readFile (const std::string & filename,
             ss << i;
             string str = ss.str();
 
-            int sampleSize;
+            int sampleSize = 0;
             if (channelTypes[i] == 0) sampleSize = sizeof (unsigned int);
             if (channelTypes[i] == 1) sampleSize = sizeof (half);
             if (channelTypes[i] == 2) sampleSize = sizeof (float);
@@ -344,8 +348,6 @@ void readFile (const std::string & filename,
         file.readPixelSampleCounts(dataWindow.min.y, dataWindow.max.y);
         for (int i = 0; i < dataWindow.max.y - dataWindow.min.y + 1; i++)
         {
-            int y = i + dataWindow.min.y;
-
             for (int j = 0; j < width; j++)
                 assert(localSampleCount[i][j] == sampleCount[i][j]);
 
@@ -407,16 +409,16 @@ void readFile (const std::string & filename,
             {
 	        if( !randomChannels || read_channel[k]==1 )
 		{
-                    for (int l = 0; l < sampleCount[i][j]; l++)
+                    for (unsigned int l = 0; l < sampleCount[i][j]; l++)
                     {
                         if (channelTypes[k] == 0)
                         {
                             unsigned int* value = (unsigned int*)(data[k][i][j]);
-                            if (value[l] != (i * width + j) % 2049)
+                            if (value[l] != static_cast<unsigned int>(i * width + j) % 2049)
                                 cout << j << ", " << i << " error, should be "
                                      << (i * width + j) % 2049 << ", is " << value[l]
                                      << endl << flush;
-                            assert (value[l] == (i * width + j) % 2049);
+                            assert (value[l] == static_cast<unsigned int>(i * width + j) % 2049);
                         }
                         if (channelTypes[k] == 1)
                         {

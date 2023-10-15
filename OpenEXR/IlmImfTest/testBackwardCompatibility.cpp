@@ -32,6 +32,10 @@
 //
 ///////////////////////////////////////////////////////////////////////////
 
+#ifdef NDEBUG
+#    undef NDEBUG
+#endif
+
 #include "testBackwardCompatibility.h"
 
 #include <ImfArray.h>
@@ -118,6 +122,7 @@ diffImageFiles (const char * fn1, const char * fn2)
     }
 }
 
+#if 0
 void
 addPreviewImageToHeader (OPENEXR_IMF_NAMESPACE::Header & hdr)
 {
@@ -134,6 +139,7 @@ addPreviewImageToHeader (OPENEXR_IMF_NAMESPACE::Header & hdr)
     }
     hdr.setPreviewImage (OPENEXR_IMF_NAMESPACE::PreviewImage (pW, pH, &previewPixels[0][0]));
 }
+#endif
 
 void
 addUserAttributesToHeader (OPENEXR_IMF_NAMESPACE::Header & hdr)

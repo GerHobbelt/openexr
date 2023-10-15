@@ -32,7 +32,9 @@
 //
 ///////////////////////////////////////////////////////////////////////////
 
-
+#ifdef NDEBUG
+#    undef NDEBUG
+#endif
 
 #include "fuzzFile.h"
 
@@ -174,7 +176,7 @@ void generateRandomFile(const char filename[], int channelCount,int parts , Comp
                 for (int k = 0; k < channelCount; k++)
                 {
                     data[k][i][j] = new float[sampleCount[i][j]];
-                    for (int l = 0; l < sampleCount[i][j]; l++)
+                    for (unsigned int l = 0; l < sampleCount[i][j]; l++)
                     {
                         ((float*)data[k][i][j])[l] = (i * width + j) % 2049;
                     }
@@ -247,8 +249,6 @@ void readFile(const char filename[])
         file.readPixelSampleCounts(dataWindow.min.y, dataWindow.max.y);
         for (int i = 0; i < dataWindow.max.y - dataWindow.min.y + 1; i++)
         {
-            int y = i + dataWindow.min.y;
-            
             for (int j = 0; j < width; j++)
             {
                 for (int k = 0; k < channelCount; k++)
@@ -340,8 +340,6 @@ void readFile(const char filename[])
             inpart.readPixelSampleCounts(dataWindow.min.y, dataWindow.max.y);
             for (int i = 0; i < dataWindow.max.y - dataWindow.min.y + 1; i++)
             {
-                int y = i + dataWindow.min.y;
-                
                 for (int j = 0; j < width; j++)
                 {
                     for (int k = 0; k < channelCount; k++)

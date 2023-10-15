@@ -32,6 +32,10 @@
 //
 ///////////////////////////////////////////////////////////////////////////
 
+#ifdef NDEBUG
+#    undef NDEBUG
+#endif
+
 #include "testDeepScanLineBasic.h"
 
 #include "ImfDeepScanLineInputFile.h"
@@ -136,7 +140,7 @@ generateRandomFile (int channelCount,
     Int64 bytes_per_sample = 0;
     for (int i = 0; i < channelCount; i++)
     {
-        PixelType type;
+        PixelType type = NUM_PIXELTYPES;
         if (channelTypes[i] == 0)
             type = IMF::UINT;
         if (channelTypes[i] == 1)
@@ -148,7 +152,7 @@ generateRandomFile (int channelCount,
         ss << i;
         string str = ss.str();
 
-        int sampleSize;
+        int sampleSize = 0;
         if (channelTypes[i] == 0) sampleSize = sizeof (unsigned int);
         if (channelTypes[i] == 1) sampleSize = sizeof (half);
         if (channelTypes[i] == 2) sampleSize = sizeof (float);
@@ -228,7 +232,7 @@ generateRandomFile (int channelCount,
                     
                     if(random_channel_data)
                     {
-                        for (int l = 0; l < sampleCount[i][j]; l++)
+                        for (unsigned int l = 0; l < sampleCount[i][j]; l++)
                         {
                             if (channelTypes[k] == 0)
                                 ((unsigned int*)data[k][i][j])[l] = rand();
@@ -240,7 +244,7 @@ generateRandomFile (int channelCount,
                     }
                     else
                     {
-                      for (int l = 0; l < sampleCount[i][j]; l++)
+                      for (unsigned int l = 0; l < sampleCount[i][j]; l++)
                       {
                           if (channelTypes[k] == 0)
                               ((unsigned int*)data[k][i][j])[l] = (i * width + j) % 2049;
@@ -299,7 +303,7 @@ readFile (int channelCount, bool bulkRead, const std::string & fn)
     
     for (int i = 0; i < channelCount; i++)
     {
-        PixelType type;
+        PixelType type = NUM_PIXELTYPES;
         if (channelTypes[i] == 0)
             type = IMF::UINT;
         if (channelTypes[i] == 1)
@@ -311,7 +315,7 @@ readFile (int channelCount, bool bulkRead, const std::string & fn)
         ss << i;
         string str = ss.str();
 
-        int sampleSize;
+        int sampleSize = 0;
         if (channelTypes[i] == 0) sampleSize = sizeof (unsigned int);
         if (channelTypes[i] == 1) sampleSize = sizeof (half);
         if (channelTypes[i] == 2) sampleSize = sizeof (float);
@@ -337,9 +341,6 @@ readFile (int channelCount, bool bulkRead, const std::string & fn)
     
     for (int i = 0; i < dataWindow.max.y - dataWindow.min.y + 1; i++)
     {
-         int y = i + dataWindow.min.y;
-
-         
          for (int j = 0; j < width; j++)
          {
               assert(localSampleCount[i][j] == sampleCount[i][j]);
@@ -435,4 +436,3 @@ void testDeepScanLineHuge (const std::string & tempDir)
         assert (false);
     }
 }
-

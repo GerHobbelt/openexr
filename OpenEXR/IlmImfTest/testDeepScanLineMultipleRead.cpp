@@ -31,6 +31,10 @@
 //
 ///////////////////////////////////////////////////////////////////////////
 
+#ifdef NDEBUG
+#    undef NDEBUG
+#endif
+
 #include "testCompositeDeepScanLine.h"
 
 #include <ImfDeepScanLineOutputFile.h>
@@ -51,8 +55,6 @@
 
 namespace{
 
-const char source_filename[] = IMF_TMP_DIR "imf_test_multiple_read.exr";
-    
 using std::cout;
 using std::endl;
 using std::flush;
@@ -161,14 +163,14 @@ static void read_file(const char * filename)
         for(int i=0;i<width;i++)
         {
             
-            if( samplecounts[i]!= row)
+            if( samplecounts[i]!= static_cast<unsigned int>(row))
             {
               cout << i << ", " << row << " error, sample counts hould be "
               << row  << ", is " << samplecounts[i]
               << endl << flush;
             }
             
-            assert (samplecounts[i]== row);
+            assert (samplecounts[i]== static_cast<unsigned int>(row));
             
             total_samples+=samplecounts[i];
         }
