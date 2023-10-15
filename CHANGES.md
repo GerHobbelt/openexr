@@ -1,6 +1,6 @@
 # OpenEXR Release Notes
 
-* [Version 2.5.0](#version-250-may-4-2020)
+* [Version 2.5.0](#version-250-may-6-2020)
 * [Version 2.4.1](#version-241-february-11-2020)
 * [Version 2.4.0](#version-240-september-19-2019)
 * [Version 2.3.0](#version-230-august-13-2018)
@@ -33,7 +33,7 @@
 * [Version 1.0.1](#version-101)
 * [Version 1.0](#version-10)
 
-## Version 2.5.0 (May 4, 2020)
+## Version 2.5.0 (May 6, 2020)
 
 Minor release with miscellaneous bug fixes and small features
 
@@ -54,8 +54,10 @@ Minor release with miscellaneous bug fixes and small features
 
 ### Merged Pull Requests
 
-
-
+* [712](https://github.com/AcademySoftwareFoundation/openexr/pull/712) Removed #include PyIlmBaseConfigInternal.h from all public .h files.
+* [711](https://github.com/AcademySoftwareFoundation/openexr/pull/711) Rewrote testToFloat(). 
+* [709](https://github.com/AcademySoftwareFoundation/openexr/pull/709) Fix clean pthreads strikes back
+* [708](https://github.com/AcademySoftwareFoundation/openexr/pull/708) Fix clean pthreads
 * [707](https://github.com/AcademySoftwareFoundation/openexr/pull/707) A clean version of #673: Allow the use of Pthreads with WIN32/64 
 * [705](https://github.com/AcademySoftwareFoundation/openexr/pull/705) added recent commits and PR's to 2.5.0 release notes 
 * [704](https://github.com/AcademySoftwareFoundation/openexr/pull/704) fixed typos in README.md
@@ -188,6 +190,9 @@ Minor release with miscellaneous bug fixes and small features
 
 ### Commits \[ git log v2.4.0...v2.5.0\]
 
+* [b12ea7f3](https://github.com/AcademySoftwareFoundation/openexr/commit/b12ea7f30d624d51f1b69a2ffa9159a4f07a7974) Pthreads: Some stuff @meshula overlooked. ([Gregorio Litenstein](@g.litenstein@gmail.com) 2020-05-04)
+* [af8864d2](https://github.com/AcademySoftwareFoundation/openexr/commit/af8864d259d3ef523fc75eaab4f9a74b0f3b092c) pthreads: Fix CMake/Autotools to check for them ([Gregorio Litenstein](@g.litenstein@gmail.com) 2020-05-04)
+* [2ef3d626](https://github.com/AcademySoftwareFoundation/openexr/commit/2ef3d6265a56cd1ca7c4112a616db6987f134c4a) Pthreads: Some stuff @meshula overlooked. ([Gregorio Litenstein](@g.litenstein@gmail.com) 2020-05-04)
 * [3ab677bd](https://github.com/AcademySoftwareFoundation/openexr/commit/3ab677bd375db896215459a49de77ac87fbbb19c) A clean version of #673: Allow the use of Pthreads with WIN32/64 builds under MinGW ([Cary Phillips](@cary@ilm.com) 2020-05-01)
 * [4bb99704](https://github.com/AcademySoftwareFoundation/openexr/commit/4bb99704799830f1be1fa8cde559e3f2f63068a1) added recent commits and PR's to 2.5.0 release notes ([Cary Phillips](@cary@ilm.com) 2020-04-30)
 * [ac4fb158](https://github.com/AcademySoftwareFoundation/openexr/commit/ac4fb15895447ce042528cc965ce2b242d130311) fixed wording of OpenEXR_Viewers in 2.5.0 release notes. ([Cary Phillips](@cary@ilm.com) 2020-04-29)
