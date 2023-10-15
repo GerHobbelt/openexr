@@ -59,7 +59,6 @@
 
 #include <fstream>
 #include <algorithm>
-#include <mutex>
 
 #include "ImfNamespace.h"
 
@@ -74,7 +73,10 @@ using IMATH_NAMESPACE::modp;
 // needed between calls to readPixels
 //
 
-struct InputFile::Data : public std::mutex
+struct InputFile::Data
+#if ILMBASE_THREADING_ENABLED
+    : public std::mutex
+#endif
 {
     Header              header;
     int                 version;
@@ -454,6 +456,14 @@ InputFile::InputFile (const char fileName[], int numThreads):
             _data->_streamData->is = is;
             _data->header.readFrom (*_data->_streamData->is, _data->version);
             
+            if(isNonImage(_data->version))
+            {
+                if(!_data->header.hasType())
+                {
+                      throw(IEX_NAMESPACE::InputExc("Non-image files must have a 'type' attribute"));
+                }
+            }
+
             // fix type attribute in single part regular image types
             // (may be wrong if an old version of OpenEXR converts
             // a tiled image to scanline or vice versa)
@@ -522,6 +532,14 @@ InputFile::InputFile (OPENEXR_IMF_INTERNAL_NAMESPACE::IStream &is, int numThread
             _data->_streamData->is = &is;
             _data->header.readFrom (*_data->_streamData->is, _data->version);
             
+            if(isNonImage(_data->version))
+            {
+                if(!_data->header.hasType())
+                {
+                      throw(IEX_NAMESPACE::InputExc("Non-image files must have a 'type' attribute"));
+                }
+            }
+
             // fix type attribute in single part regular image types
             // (may be wrong if an old version of OpenEXR converts
             // a tiled image to scanline or vice versa)
@@ -732,8 +750,9 @@ InputFile::setFrameBuffer (const FrameBuffer &frameBuffer)
 {
     if (_data->isTiled)
     {
-	std::lock_guard<std::mutex> lock (*_data);
-
+#if ILMBASE_THREADING_ENABLED
+        std::lock_guard<std::mutex> lock (*_data);
+#endif
 	//
         // We must invalidate the cached buffer if the new frame
 	// buffer has a different set of channels than the old
@@ -868,8 +887,10 @@ InputFile::frameBuffer () const
     }
     else if(_data->isTiled)
     {
-	std::lock_guard<std::mutex> lock (*_data);
-	return _data->tFileBuffer;
+#if ILMBASE_THREADING_ENABLED
+        std::lock_guard<std::mutex> lock (*_data);
+#endif
+        return _data->tFileBuffer;
     }
     else
     {
@@ -910,7 +931,9 @@ InputFile::readPixels (int scanLine1, int scanLine2)
     }
     else if (_data->isTiled)
     {
-	std::lock_guard<std::mutex> lock (*_data);
+#if ILMBASE_THREADING_ENABLED
+        std::lock_guard<std::mutex> lock (*_data);
+#endif
         bufferedReadPixels (_data, scanLine1, scanLine2);
     }
     else

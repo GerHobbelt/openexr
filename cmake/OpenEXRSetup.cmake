@@ -3,6 +3,11 @@
 
 include(GNUInstallDirs)
 
+if(NOT "${CMAKE_PROJECT_NAME}" STREQUAL "${PROJECT_NAME}")
+  set(OPENEXR_IS_SUBPROJECT ON)
+  message(NOTICE "OpenEXR is configuring as a cmake sub project")
+endif()
+
 ########################
 ## Target configuration
 
@@ -176,7 +181,7 @@ if(OPENEXR_FORCE_INTERNAL_ZLIB OR NOT ZLIB_FOUND)
     set(cmake_cc_arg -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE})
   endif ()
 
-  if(NOT OPENEXR_FORCE_INTERNAL_ZLIB)
+  if(NOT (APPLE OR WIN32) AND NOT OPENEXR_FORCE_INTERNAL_ZLIB)
     set(zlib_INTERNAL_DIR "${CMAKE_INSTALL_PREFIX}" CACHE PATH "zlib install dir")
   else()
     set(zlib_INTERNAL_DIR "${CMAKE_BINARY_DIR}/zlib-install" CACHE PATH "zlib install dir")
@@ -206,11 +211,19 @@ if(OPENEXR_FORCE_INTERNAL_ZLIB OR NOT ZLIB_FOUND)
   file(MAKE_DIRECTORY "${zlib_INTERNAL_DIR}/include")
   file(MAKE_DIRECTORY "${zlib_INTERNAL_DIR}/lib")
 
-  if(BUILD_SHARED_LIBS AND NOT OPENEXR_FORCE_INTERNAL_ZLIB)
+  if(WIN32)
+    set(zliblibname "zlib")
+    set(zlibstaticlibname "zlibstatic")
+  else()
+    set(zliblibname "z")
+    set(zlibstaticlibname "z")
+  endif()
+
+  if(NOT (APPLE OR WIN32) AND BUILD_SHARED_LIBS AND NOT OPENEXR_FORCE_INTERNAL_ZLIB)
     add_library(zlib_shared SHARED IMPORTED)
     add_dependencies(zlib_shared zlib_external)
     set_property(TARGET zlib_shared PROPERTY
-      IMPORTED_LOCATION "${zlib_INTERNAL_DIR}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}z${CMAKE_SHARED_LIBRARY_SUFFIX}"
+      IMPORTED_LOCATION "${zlib_INTERNAL_DIR}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}${zliblibname}${CMAKE_SHARED_LIBRARY_SUFFIX}"
       )
     target_include_directories(zlib_shared INTERFACE "${zlib_INTERNAL_DIR}/include")
   endif()
@@ -218,11 +231,11 @@ if(OPENEXR_FORCE_INTERNAL_ZLIB OR NOT ZLIB_FOUND)
   add_library(zlib_static STATIC IMPORTED)
   add_dependencies(zlib_static zlib_external)
   set_property(TARGET zlib_static PROPERTY
-    IMPORTED_LOCATION "${zlib_INTERNAL_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}z${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    IMPORTED_LOCATION "${zlib_INTERNAL_DIR}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}${zlibstaticlibname}${CMAKE_STATIC_LIBRARY_SUFFIX}"
     )
   target_include_directories(zlib_static INTERFACE "${zlib_INTERNAL_DIR}/include")
 
-  if (BUILD_SHARED_LIBS AND NOT OPENEXR_FORCE_INTERNAL_ZLIB)
+  if(NOT (APPLE OR WIN32) AND BUILD_SHARED_LIBS AND NOT OPENEXR_FORCE_INTERNAL_ZLIB)
     add_library(ZLIB::ZLIB ALIAS zlib_shared)
   else()
     add_library(ZLIB::ZLIB ALIAS zlib_static)

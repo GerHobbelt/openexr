@@ -63,7 +63,6 @@
 #include <vector>
 #include <assert.h>
 #include <cstring>
-#include <mutex>
 
 OPENEXR_IMF_INTERNAL_NAMESPACE_SOURCE_ENTER
 
@@ -208,7 +207,10 @@ struct sliceOptimizationData
 } // namespace
 
 
-struct ScanLineInputFile::Data: public std::mutex
+struct ScanLineInputFile::Data
+#if ILMBASE_THREADING_ENABLED
+    : public std::mutex
+#endif
 {
     Header		header;		    // the image header
     int			version;            // file's version
@@ -1133,14 +1135,14 @@ void ScanLineInputFile::initialize(const Header& header)
                               _data->linesInBuffer) / _data->linesInBuffer;
 
         //
-        // avoid allocating excessive memory due to large lineOffsets table size.
+        // avoid allocating excessive memory due to large lineOffsets and bytesPerLine table sizes.
         // If the chunktablesize claims to be large,
-        // check the file is big enough to contain the table before allocating memory
+        // check the file is big enough to contain the lineOffsets table before allocating memory
         // in the bytesPerLineTable and the lineOffsets table.
         // Attempt to read the last entry in the table. Either the seekg() or the read()
         // call will throw an exception if the file is too small to contain the table
         //
-        if (lineOffsetSize > gLargeChunkTableSize)
+        if (lineOffsetSize * _data->linesInBuffer > gLargeChunkTableSize)
         {
             Int64 pos = _streamData->is->tellg();
             _streamData->is->seekg(pos + (lineOffsetSize-1)*sizeof(Int64));
@@ -1422,10 +1424,10 @@ detectOptimizationMode (const vector<sliceOptimizationData>& optData)
 void	
 ScanLineInputFile::setFrameBuffer (const FrameBuffer &frameBuffer)
 {
+#if ILMBASE_THREADING_ENABLED
     std::lock_guard<std::mutex> lock (*_streamData);
+#endif
 
-    
-    
     const ChannelList &channels = _data->header.channels();
     for (FrameBuffer::ConstIterator j = frameBuffer.begin();
 	 j != frameBuffer.end();
@@ -1628,7 +1630,9 @@ ScanLineInputFile::setFrameBuffer (const FrameBuffer &frameBuffer)
 const FrameBuffer &
 ScanLineInputFile::frameBuffer () const
 {
+#if ILMBASE_THREADING_ENABLED
     std::lock_guard<std::mutex> lock (*_streamData);
+#endif
     return _data->frameBuffer;
 }
 
@@ -1654,11 +1658,12 @@ ScanLineInputFile::readPixels (int scanLine1, int scanLine2)
 {
     try
     {
+#if ILMBASE_THREADING_ENABLED
         std::lock_guard<std::mutex> lock (*_streamData);
-
-	if (_data->slices.size() == 0)
-	    throw IEX_NAMESPACE::ArgExc ("No frame buffer specified "
-			       "as pixel data destination.");
+#endif
+        if (_data->slices.size() == 0)
+            throw IEX_NAMESPACE::ArgExc (
+                "No frame buffer specified as pixel data destination.");
 
 	int scanLineMin = min (scanLine1, scanLine2);
 	int scanLineMax = max (scanLine1, scanLine2);
@@ -1778,8 +1783,9 @@ ScanLineInputFile::rawPixelData (int firstScanLine,
 {
     try
     {
+#if ILMBASE_THREADING_ENABLED
         std::lock_guard<std::mutex> lock (*_streamData);
-
+#endif
 	if (firstScanLine < _data->minY || firstScanLine > _data->maxY)
 	{
 	    throw IEX_NAMESPACE::ArgExc ("Tried to read scan line outside "
@@ -1815,8 +1821,9 @@ void ScanLineInputFile::rawPixelDataToBuffer(int scanLine,
 
   try 
   {
+#if ILMBASE_THREADING_ENABLED
     std::lock_guard<std::mutex> lock (*_streamData);
-    
+#endif
     if (scanLine < _data->minY || scanLine > _data->maxY) 
     {
       throw IEX_NAMESPACE::ArgExc ("Tried to read scan line outside "
