@@ -105,13 +105,8 @@ contributing to OpenEXR.
 ## License
 
 OpenEXR is released under the [BSD-3-Clause](LICENSE) license.
- 
-Developers who wish to contribute code to be considered for inclusion
-in the OpenEXR distribution must first complete the Contributor
-License Agreement and submit it to info@openexr.com. Commits must
-include a “Signed-off-by” line indicating that the committer wrote the
-code and has the right to release it under the BSD-3-Clause
-license. See http://developercertificate.org/ for more information.
+
+See [PATENTS](OpenEXR/PATENTS) for license information about portions of OpenEXR that are provided under a different license.
 
 ## Project Goverance
 
