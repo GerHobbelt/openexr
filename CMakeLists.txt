@@ -10,6 +10,7 @@ set(OPENEXR_VERSION_MINOR 3)
 set(OPENEXR_VERSION_PATCH 0)
 set(OPENEXR_VERSION ${OPENEXR_VERSION_MAJOR}.${OPENEXR_VERSION_MINOR}.${OPENEXR_VERSION_PATCH})
 set(OPENEXR_VERSION_API ${OPENEXR_VERSION_MAJOR}_${OPENEXR_VERSION_MINOR})
+set(OPENEXR_SOVERSION 24)
 
 project(OpenEXR VERSION ${OPENEXR_VERSION})
 
@@ -25,6 +26,10 @@ option(OPENEXR_BUILD_OPENEXR        "Build OpenEXR"              ON)
 option(OPENEXR_BUILD_PYTHON_LIBS    "Build the Python bindings"  ON)
 option(OPENEXR_BUILD_VIEWERS        "Build the viewers"          OFF)
 option(OPENEXR_BUILD_TESTS          "Enable the tests"           ON)
+# when enabled, adds the (long) running fuzz tests to the "make test" rule
+# even when this is disabled, as long as OPENEXR_BUILD_TESTS is enabled, one
+# can still run "make fuzz" (or equivalent)
+option(OPENEXR_RUN_FUZZ_TESTS       "Run damaged-input tests"    OFF)
 option(OPENEXR_BUILD_UTILS          "Build the utility programs" ON)
 
 option(OPENEXR_BUILD_SHARED         "Build Shared Libraries"     ON)
@@ -132,9 +137,6 @@ if (OPENEXR_BUILD_PYTHON_LIBS)
   endif()
 
   find_package(NumPy)
-  if(NOT NumPy_FOUND)
-    message(WARNING "Numpy not found, PyImathNumpy will not be built")
-  endif()
 endif()
 
 if(OPENEXR_BUILD_VIEWERS)
@@ -167,6 +169,9 @@ if ((OPENEXR_BUILD_UTILS OR OPENEXR_BUILD_TESTS OR OPENEXR_BUILD_VIEWERS) AND NO
     message(INFO, "Set OPENEXR_LOCATION to location of OpenEXR.")
   endif()
 endif()
+
+# Set position independent code (mostly for static builds, but not a bad idea regardless)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # Perform the build
 if(OPENEXR_BUILD_ILMBASE)
