@@ -64,6 +64,11 @@ else()
   set(OPENEXR_ENABLE_API_VISIBILITY ON)
 endif()
 
+if (UNIX AND NOT APPLE AND NOT BEOS)
+  find_library(OPENEXR_EXTRA_MATH_LIB m)
+  mark_as_advanced(OPENEXR_EXTRA_MATH_LIB)
+endif()
+
 configure_file(OpenEXRConfig.h.in ${CMAKE_CURRENT_BINARY_DIR}/OpenEXRConfig.h)
 configure_file(OpenEXRConfigInternal.h.in ${CMAKE_CURRENT_BINARY_DIR}/OpenEXRConfigInternal.h)
 
@@ -180,7 +185,8 @@ if(OPENEXR_INSTALL_PKG_CONFIG)
     set(exec_prefix "\${prefix}")
     set(libdir "\${exec_prefix}/${CMAKE_INSTALL_LIBDIR}")
     set(includedir "\${prefix}/${CMAKE_INSTALL_INCLUDEDIR}")
-    set(LIB_SUFFIX_DASH ${OPENEXR_LIB_SUFFIX})
+    string(TOUPPER "${CMAKE_BUILD_TYPE}" uppercase_CMAKE_BUILD_TYPE)
+    set(LIB_SUFFIX_DASH ${OPENEXR_LIB_SUFFIX}${CMAKE_${uppercase_CMAKE_BUILD_TYPE}_POSTFIX})
     if(OPENEXR_ENABLE_THREADING AND TARGET Threads::Threads)
       # hrm, can't use properties as they end up as generator expressions
       # which don't seem to evaluate
