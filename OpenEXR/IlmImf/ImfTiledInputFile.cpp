@@ -609,10 +609,11 @@ TileBufferTask::execute ()
                     // The frame buffer contains a slice for this channel.
                     //
     
-                    char *writePtr = slice.base +
+                    intptr_t base = reinterpret_cast<intptr_t>(slice.base);
+                    char *writePtr = reinterpret_cast<char*>(base +
                                      (y - yOffset) * slice.yStride +
                                      (tileRange.min.x - xOffset) *
-                                     slice.xStride;
+                                     slice.xStride);
 
                     char *endPtr = writePtr +
                                    (numPixelsPerScanLine - 1) * slice.xStride;
@@ -998,6 +999,16 @@ TiledInputFile::initialize ()
     _data->maxBytesPerTileLine = _data->bytesPerPixel * _data->tileDesc.xSize;
 
     _data->tileBufferSize = _data->maxBytesPerTileLine * _data->tileDesc.ySize;
+
+    //
+    // OpenEXR has a limit of INT_MAX compressed bytes per tile
+    // disallow uncompressed tile sizes above INT_MAX too to guarantee file is written
+    //
+    if( _data->tileBufferSize > INT_MAX )
+    {
+        throw IEX_NAMESPACE::ArgExc ("Tile size too large for OpenEXR format");
+    }
+
 
     //
     // Create all the TileBuffers and allocate their internal buffers

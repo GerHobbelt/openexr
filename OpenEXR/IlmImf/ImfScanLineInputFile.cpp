@@ -636,12 +636,14 @@ LineBufferTask::execute ()
                     // The frame buffer contains a slice for this channel.
                     //
     
-                    char *linePtr  = slice.base +
+                    intptr_t base = reinterpret_cast<intptr_t>(slice.base);
+
+                    intptr_t linePtr  = base +
                                         intptr_t( divp (y, slice.ySampling) ) *
                                         intptr_t( slice.yStride );
     
-                    char *writePtr = linePtr + intptr_t( dMinX ) * intptr_t( slice.xStride );
-                    char *endPtr   = linePtr + intptr_t( dMaxX ) * intptr_t( slice.xStride );
+                    char *writePtr = reinterpret_cast<char*> (linePtr + intptr_t( dMinX ) * intptr_t( slice.xStride ));
+                    char *endPtr   = reinterpret_cast<char*> (linePtr + intptr_t( dMaxX ) * intptr_t( slice.xStride ));
                     
                     copyIntoFrameBuffer (readPtr, writePtr, endPtr,
                                          slice.xStride, slice.fill,
@@ -794,20 +796,21 @@ void LineBufferTaskIIF::getWritePointer
           outWritePointerRight  = 0;
       }
       
-      const char* linePtr1  = firstSlice.base +
+      intptr_t base = reinterpret_cast<intptr_t>(firstSlice.base);
+
+      intptr_t linePtr1  = (base +
       divp (y, firstSlice.ySampling) *
-      firstSlice.yStride;
+      firstSlice.yStride);
       
       int dMinX1 = divp (_ifd->minX, firstSlice.xSampling);
       int dMaxX1 = divp (_ifd->maxX, firstSlice.xSampling);
       
       // Construct the writePtr so that we start writing at
       // linePtr + Min offset in the line.
-      outWritePointerRight =  (unsigned short*)(linePtr1 +
+      outWritePointerRight =  reinterpret_cast<unsigned short*>(linePtr1 +
       dMinX1 * firstSlice.xStride );
       
-      size_t bytesToCopy  = ((linePtr1 + dMaxX1 * firstSlice.xStride ) -
-      (linePtr1 + dMinX1 * firstSlice.xStride )) + 2;
+      size_t bytesToCopy  = ((dMaxX1 * firstSlice.xStride ) - (dMinX1 * firstSlice.xStride )) + 2;
       size_t shortsToCopy = bytesToCopy / sizeOfSingleValue;
       size_t pixelsToCopy = (shortsToCopy / nbSlicesInBank ) + 1;
       
@@ -1100,7 +1103,7 @@ newLineBufferTask (TaskGroup *group,
  }
  
   
-
+static const int gLargeChunkTableSize = 1024*1024;
 
 } // namespace
 
@@ -1118,25 +1121,53 @@ void ScanLineInputFile::initialize(const Header& header)
         _data->minY = dataWindow.min.y;
         _data->maxY = dataWindow.max.y;
 
+        Compression comp = _data->header.compression();
+
+        _data->linesInBuffer =
+            numLinesInBuffer (comp);
+
+        int lineOffsetSize = (dataWindow.max.y - dataWindow.min.y +
+                              _data->linesInBuffer) / _data->linesInBuffer;
+
+        //
+        // avoid allocating excessive memory due to large lineOffsets table size.
+        // If the chunktablesize claims to be large,
+        // check the file is big enough to contain the table before allocating memory
+        // in the bytesPerLineTable and the lineOffsets table.
+        // Attempt to read the last entry in the table. Either the seekg() or the read()
+        // call will throw an exception if the file is too small to contain the table
+        //
+        if (lineOffsetSize > gLargeChunkTableSize)
+        {
+            Int64 pos = _streamData->is->tellg();
+            _streamData->is->seekg(pos + (lineOffsetSize-1)*sizeof(Int64));
+            Int64 temp;
+            OPENEXR_IMF_INTERNAL_NAMESPACE::Xdr::read <OPENEXR_IMF_INTERNAL_NAMESPACE::StreamIO> (*_streamData->is, temp);
+            _streamData->is->seekg(pos);
+
+        }
+
+
         size_t maxBytesPerLine = bytesPerLineTable (_data->header,
                                                     _data->bytesPerLine);
-        
-        if(maxBytesPerLine > INT_MAX)
+
+        if (maxBytesPerLine*numLinesInBuffer(comp) > INT_MAX)
         {
             throw IEX_NAMESPACE::InputExc("maximum bytes per scanline exceeds maximum permissible size");
         }
 
 
+        //
+        // allocate compressor objects
+        //
         for (size_t i = 0; i < _data->lineBuffers.size(); i++)
         {
-            _data->lineBuffers[i] = new LineBuffer (newCompressor
-                                                (_data->header.compression(),
+            _data->lineBuffers[i] = new LineBuffer (newCompressor(comp,
                                                  maxBytesPerLine,
                                                  _data->header));
         }
 
-        _data->linesInBuffer =
-            numLinesInBuffer (_data->lineBuffers[0]->compressor);
+
 
         _data->lineBufferSize = maxBytesPerLine * _data->linesInBuffer;
 
@@ -1145,6 +1176,10 @@ void ScanLineInputFile::initialize(const Header& header)
             for (size_t i = 0; i < _data->lineBuffers.size(); i++)
             {
                 _data->lineBuffers[i]->buffer = (char *) EXRAllocAligned(_data->lineBufferSize*sizeof(char),16);
+                if (!_data->lineBuffers[i]->buffer)
+                {
+                    throw IEX_NAMESPACE::LogicExc("Failed to allocate memory for scanline buffers");
+                }
             }
         }
         _data->nextLineBufferMinY = _data->minY - 1;
@@ -1153,8 +1188,6 @@ void ScanLineInputFile::initialize(const Header& header)
                                  _data->linesInBuffer,
                                  _data->offsetInLineBuffer);
 
-        int lineOffsetSize = (dataWindow.max.y - dataWindow.min.y +
-                              _data->linesInBuffer) / _data->linesInBuffer;
 
         _data->lineOffsets.resize (lineOffsetSize);
 }

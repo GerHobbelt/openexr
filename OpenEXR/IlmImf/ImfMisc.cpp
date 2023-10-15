@@ -1390,9 +1390,10 @@ namespace
 //
 
 struct FBytes { uint8_t b[4]; };
-union bytesOrFloat {
+union bytesUintOrFloat {
   FBytes b;
   float f;
+  unsigned int u;
 } ;
 }
 
@@ -1408,7 +1409,9 @@ convertInPlace (char *& writePtr,
     
         for (size_t j = 0; j < numPixels; ++j)
         {
-            Xdr::write <CharPtrIO> (writePtr, *(const unsigned int *) readPtr);
+            union bytesUintOrFloat tmp;
+            tmp.b = * reinterpret_cast<const FBytes *>( readPtr );
+            Xdr::write <CharPtrIO> (writePtr, tmp.u);
             readPtr += sizeof(unsigned int);
         }
         break;
@@ -1426,7 +1429,7 @@ convertInPlace (char *& writePtr,
     
         for (size_t j = 0; j < numPixels; ++j)
         {
-            union bytesOrFloat tmp;
+            union bytesUintOrFloat tmp;
             tmp.b = * reinterpret_cast<const FBytes *>( readPtr );
             Xdr::write <CharPtrIO> (writePtr, tmp.f);
             readPtr += sizeof(float);
@@ -1848,38 +1851,7 @@ usesLongNames (const Header &header)
     return false;
 }
 
-namespace
-{
-// for a given compression type, return the number of scanlines
-// compressed into a single chunk
-// TODO add to API and move to ImfCompressor.cpp
-int
-numLinesInBuffer(Compression comp)
-{
-    switch(comp)
-    {
-        case NO_COMPRESSION :
-        case RLE_COMPRESSION:
-        case ZIPS_COMPRESSION:
-            return 1;
-        case ZIP_COMPRESSION:
-            return 16;
-        case PIZ_COMPRESSION:
-            return 32;
-        case PXR24_COMPRESSION:
-            return 16;
-        case B44_COMPRESSION:
-        case B44A_COMPRESSION:
-        case DWAA_COMPRESSION:
-            return 32;
-        case DWAB_COMPRESSION:
-            return 256;
 
-        default:
-	        throw IEX_NAMESPACE::ArgExc ("Unknown compression type");
-    }
-}
-}
 
 int
 getScanlineChunkOffsetTableSize(const Header& header)

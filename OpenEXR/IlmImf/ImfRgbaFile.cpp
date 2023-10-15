@@ -369,6 +369,7 @@ RgbaOutputFile::ToYca::writePixels (int numScanLines)
 			    "\"" << _outputFile.fileName() << "\".");
     }
 
+    intptr_t base = reinterpret_cast<intptr_t>(_fbBase);
     if (_writeY && !_writeC)
     {
 	//
@@ -385,8 +386,9 @@ RgbaOutputFile::ToYca::writePixels (int numScanLines)
 
 	    for (int j = 0; j < _width; ++j)
 	    {
-		_tmpBuf[j] = _fbBase[_fbYStride * _currentScanLine +
-				     _fbXStride * (j + _xMin)];
+		_tmpBuf[j] = *reinterpret_cast<Rgba*>(base + sizeof(Rgba)*
+		(_fbYStride * _currentScanLine +
+				     _fbXStride * (j + _xMin)));
 	    }
 
 	    //
@@ -418,10 +420,13 @@ RgbaOutputFile::ToYca::writePixels (int numScanLines)
 	    // frame buffer into _tmpBuf.
 	    //
 
+            intptr_t base = reinterpret_cast<intptr_t>(_fbBase);
+
 	    for (int j = 0; j < _width; ++j)
 	    {
-		_tmpBuf[j + N2] = _fbBase[_fbYStride * _currentScanLine +
-					  _fbXStride * (j + _xMin)];
+                const Rgba* ptr = reinterpret_cast<const Rgba*>(base+sizeof(Rgba)*
+		(_fbYStride * _currentScanLine + _fbXStride * (j + _xMin)) );
+		_tmpBuf[j + N2] = *ptr;
 	    }
 
 	    //
@@ -1081,9 +1086,13 @@ RgbaInputFile::FromYca::readPixels (int scanLine)
 
     fixSaturation (_yw, _width, _buf2, _tmpBuf);
 
-    for (int i = 0; i < _width; ++i)
-	_fbBase[_fbYStride * scanLine + _fbXStride * (i + _xMin)] = _tmpBuf[i];
 
+    intptr_t base = reinterpret_cast<intptr_t>(_fbBase);
+    for (int i = 0; i < _width; ++i)
+    {
+        Rgba* ptr = reinterpret_cast<Rgba*>(base + sizeof(Rgba)*(_fbYStride * scanLine + _fbXStride * (i + _xMin)));
+        *ptr = _tmpBuf[i];
+    }
     _currentScanLine = scanLine;
 }
 
@@ -1180,7 +1189,7 @@ RgbaInputFile::RgbaInputFile (const char name[], int numThreads):
 {
     RgbaChannels rgbaChannels = channels();
 
-    if (rgbaChannels & (WRITE_Y | WRITE_C))
+    if (rgbaChannels & WRITE_C)
 	_fromYca = new FromYca (*_inputFile, rgbaChannels);
 }
 
@@ -1192,7 +1201,7 @@ RgbaInputFile::RgbaInputFile (OPENEXR_IMF_INTERNAL_NAMESPACE::IStream &is, int n
 {
     RgbaChannels rgbaChannels = channels();
 
-    if (rgbaChannels & (WRITE_Y | WRITE_C))
+    if (rgbaChannels & WRITE_C)
 	_fromYca = new FromYca (*_inputFile, rgbaChannels);
 }
 
@@ -1207,7 +1216,7 @@ RgbaInputFile::RgbaInputFile (const char name[],
 {
     RgbaChannels rgbaChannels = channels();
 
-    if (rgbaChannels & (WRITE_Y | WRITE_C))
+    if (rgbaChannels & WRITE_C)
 	_fromYca = new FromYca (*_inputFile, rgbaChannels);
 }
 
@@ -1222,7 +1231,7 @@ RgbaInputFile::RgbaInputFile (OPENEXR_IMF_INTERNAL_NAMESPACE::IStream &is,
 {
     RgbaChannels rgbaChannels = channels();
 
-    if (rgbaChannels & (WRITE_Y | WRITE_C))
+    if (rgbaChannels & WRITE_C)
 	_fromYca = new FromYca (*_inputFile, rgbaChannels);
 }
 
@@ -1249,27 +1258,42 @@ RgbaInputFile::setFrameBuffer (Rgba *base, size_t xStride, size_t yStride)
 
 	FrameBuffer fb;
 
-	fb.insert (_channelNamePrefix + "R",
-		   Slice (HALF,
-			  (char *) &base[0].r,
-			  xs, ys,
-			  1, 1,		// xSampling, ySampling
-			  0.0));	// fillValue
+        if( channels() & WRITE_Y )
+        {
+            fb.insert (_channelNamePrefix + "Y",
+                    Slice (HALF,
+                            (char *) &base[0].r,
+                            xs, ys,
+                            1, 1,		// xSampling, ySampling
+                            0.0));	// fillValue
+        }
+        else
+        {
 
-	fb.insert (_channelNamePrefix + "G",
-		   Slice (HALF,
-			  (char *) &base[0].g,
-			  xs, ys,
-			  1, 1,		// xSampling, ySampling
-			  0.0));	// fillValue
 
-	fb.insert (_channelNamePrefix + "B",
-		   Slice (HALF,
-			  (char *) &base[0].b,
-			  xs, ys,
-			  1, 1,		// xSampling, ySampling
-			  0.0));	// fillValue
+            fb.insert (_channelNamePrefix + "R",
+                    Slice (HALF,
+                            (char *) &base[0].r,
+                            xs, ys,
+                            1, 1,		// xSampling, ySampling
+                            0.0));	// fillValue
 
+
+
+            fb.insert (_channelNamePrefix + "G",
+                    Slice (HALF,
+                            (char *) &base[0].g,
+                            xs, ys,
+                            1, 1,		// xSampling, ySampling
+                            0.0));	// fillValue
+
+            fb.insert (_channelNamePrefix + "B",
+                    Slice (HALF,
+                            (char *) &base[0].b,
+                            xs, ys,
+                            1, 1,		// xSampling, ySampling
+                            0.0));	// fillValue
+        }
 	fb.insert (_channelNamePrefix + "A",
 		   Slice (HALF,
 			  (char *) &base[0].a,
@@ -1292,7 +1316,7 @@ RgbaInputFile::setLayerName (const string &layerName)
 
     RgbaChannels rgbaChannels = channels();
 
-    if (rgbaChannels & (WRITE_Y | WRITE_C))
+    if (rgbaChannels & WRITE_C)
 	_fromYca = new FromYca (*_inputFile, rgbaChannels);
 
     FrameBuffer fb;
@@ -1311,6 +1335,29 @@ RgbaInputFile::readPixels (int scanLine1, int scanLine2)
     else
     {
 	_inputFile->readPixels (scanLine1, scanLine2);
+
+        if (channels() & WRITE_Y)
+        {
+            //
+            // Luma channel has been written into red channel
+            // Duplicate into green and blue channel to create gray image
+            //
+            const Slice* s = _inputFile->frameBuffer().findSlice(_channelNamePrefix + "Y");
+            Box2i dataWindow = _inputFile->header().dataWindow();
+            intptr_t base = reinterpret_cast<intptr_t>(s->base);
+
+            for( int scanLine = scanLine1  ; scanLine <= scanLine2 ; scanLine++ )
+            {
+                intptr_t rowBase = base + scanLine*s->yStride;
+                for(int x = dataWindow.min.x ; x <= dataWindow.max.x ; ++x )
+                {
+                    Rgba* pixel = reinterpret_cast<Rgba*>(rowBase+x*s->xStride);
+                    pixel->g = pixel->r;
+                    pixel->b = pixel->r;
+                }
+
+            }
+        }
     }
 }
 
