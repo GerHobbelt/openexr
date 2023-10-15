@@ -1,3 +1,8 @@
+dnl
+dnl SPDX-License-Identifier: BSD-3-Clause
+dnl Copyright Contributors to the OpenEXR Project.
+dnl
+
 dnl Process this file with autoconf to produce a configure script.
 AC_INIT(PyIlmBase, 2.3.0)
 AC_SUBST(PYILMBASE_VERSION, 2.3.0)
@@ -79,6 +84,7 @@ AM_PATH_PKGCONFIG(
    [ILMBASE_CXXFLAGS],
    [ILMBASE_LDFLAGS],
    [ILMBASE_LIBS],
+   [ILMBASE_RPATH],
    [IlmBase],
    [OpenEXR],
    [-L/usr/local/lib],
@@ -90,7 +96,8 @@ AM_COMPILELINKRUN(
    [ilmbasetest],
    [$ILMBASE_CXXFLAGS],
    [$ILMBASE_LDFLAGS],
-   [$ILMBASE_LIBS],[[
+   [$ILMBASE_LIBS],
+   [$ILMBASE_RPATH],[[
 #include <stdlib.h>
 #include <ImathFun.h>
 #ifndef IMATH_NAMESPACE 
@@ -147,6 +154,7 @@ AM_COMPILELINKRUN(
    [boostpythontest],
    [$CXXFLAGS],
    [$LDFLAGS],
+   [],
    [$LIBS $BOOST_PYTHON_LIBS],[[
 #include <Python.h>
 #include <boost/python.hpp>
