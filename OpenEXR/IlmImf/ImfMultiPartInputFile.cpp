@@ -571,7 +571,7 @@ MultiPartInputFile::Data::chunkOffsetReconstruction(OPENEXR_IMF_INTERNAL_NAMESPA
             
             
             
-            if(partNumber<0 || partNumber> static_cast<int>(parts.size()))
+            if(partNumber<0 || partNumber>= static_cast<int>(parts.size()))
             {
                 throw IEX_NAMESPACE::IoExc("part number out of range");
             }
@@ -683,7 +683,7 @@ MultiPartInputFile::Data::chunkOffsetReconstruction(OPENEXR_IMF_INTERNAL_NAMESPA
         }
         
     }
-    catch (...)
+    catch (...) //NOSONAR - suppress vulnerability reports from SonarCloud.
     {
         //
         // Suppress all exceptions.  This functions is
