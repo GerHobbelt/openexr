@@ -10,16 +10,22 @@
 //	class LineOrderAttribute
 //
 //-----------------------------------------------------------------------------
+#define COMPILING_IMF_LINE_ORDER_ATTRIBUTE
 
 #include "ImfLineOrderAttribute.h"
 
+#if defined(_MSC_VER)
+// suppress warning about non-exported base classes
+#pragma warning (disable : 4251)
+#pragma warning (disable : 4275)
+#endif
 
 OPENEXR_IMF_INTERNAL_NAMESPACE_SOURCE_ENTER
 
 using namespace OPENEXR_IMF_INTERNAL_NAMESPACE;
 
 template <>
-const char *
+IMF_EXPORT const char *
 LineOrderAttribute::staticTypeName ()
 {
     return "lineOrder";
@@ -27,7 +33,7 @@ LineOrderAttribute::staticTypeName ()
 
 
 template <>
-void
+IMF_EXPORT void
 LineOrderAttribute::writeValueTo (OPENEXR_IMF_INTERNAL_NAMESPACE::OStream &os, int version) const
 {
     unsigned char tmp = _value;
@@ -36,7 +42,7 @@ LineOrderAttribute::writeValueTo (OPENEXR_IMF_INTERNAL_NAMESPACE::OStream &os, i
 
 
 template <>
-void
+IMF_EXPORT void
 LineOrderAttribute::readValueFrom (OPENEXR_IMF_INTERNAL_NAMESPACE::IStream &is, int size, int version)
 {
     unsigned char tmp;
@@ -57,5 +63,6 @@ LineOrderAttribute::readValueFrom (OPENEXR_IMF_INTERNAL_NAMESPACE::IStream &is, 
     _value = LineOrder (tmp);
 }
 
+template class IMF_EXPORT_TEMPLATE_INSTANCE TypedAttribute<OPENEXR_IMF_INTERNAL_NAMESPACE::LineOrder>;
 
 OPENEXR_IMF_INTERNAL_NAMESPACE_SOURCE_EXIT 

@@ -9,15 +9,22 @@
 //
 //-----------------------------------------------------------------------------
 
-#include <ImfTileDescriptionAttribute.h>
+#define COMPILING_IMF_STRING_VECTOR_ATTRIBUTE
+#include "ImfTileDescriptionAttribute.h"
 
+
+#if defined(_MSC_VER)
+// suppress warning about non-exported base classes
+#pragma warning (disable : 4251)
+#pragma warning (disable : 4275)
+#endif
 
 OPENEXR_IMF_INTERNAL_NAMESPACE_SOURCE_ENTER
 
 using namespace OPENEXR_IMF_INTERNAL_NAMESPACE;
 
 template <>
-const char *
+IMF_EXPORT const char *
 TileDescriptionAttribute::staticTypeName ()
 {
     return "tiledesc";
@@ -25,7 +32,7 @@ TileDescriptionAttribute::staticTypeName ()
 
 
 template <>
-void
+IMF_EXPORT void
 TileDescriptionAttribute::writeValueTo (OPENEXR_IMF_INTERNAL_NAMESPACE::OStream &os, int version) const
 {
     Xdr::write <StreamIO> (os, _value.xSize);
@@ -37,7 +44,7 @@ TileDescriptionAttribute::writeValueTo (OPENEXR_IMF_INTERNAL_NAMESPACE::OStream 
 
 
 template <>
-void
+IMF_EXPORT void
 TileDescriptionAttribute::readValueFrom (OPENEXR_IMF_INTERNAL_NAMESPACE::IStream &is,
 					 int size,
 					 int version)
@@ -72,6 +79,8 @@ TileDescriptionAttribute::readValueFrom (OPENEXR_IMF_INTERNAL_NAMESPACE::IStream
     _value.roundingMode = LevelRoundingMode (levelRoundingMode);
     
 }
+
+template class IMF_EXPORT_TEMPLATE_INSTANCE TypedAttribute<OPENEXR_IMF_INTERNAL_NAMESPACE::TileDescription>;
 
 
 OPENEXR_IMF_INTERNAL_NAMESPACE_SOURCE_EXIT 

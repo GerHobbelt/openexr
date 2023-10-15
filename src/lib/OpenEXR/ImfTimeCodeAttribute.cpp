@@ -9,14 +9,23 @@
 //
 //-----------------------------------------------------------------------------
 
-#include <ImfTimeCodeAttribute.h>
+#define COMPILING_IMF_TIMECODE_ATTRIBUTE
+
+#include "ImfTimeCodeAttribute.h"
+
+
+#if defined(_MSC_VER)
+// suppress warning about non-exported base classes
+#pragma warning (disable : 4251)
+#pragma warning (disable : 4275)
+#endif
 
 OPENEXR_IMF_INTERNAL_NAMESPACE_SOURCE_ENTER
 
 using namespace OPENEXR_IMF_INTERNAL_NAMESPACE;
 
 template <>
-const char *
+IMF_EXPORT const char *
 TimeCodeAttribute::staticTypeName ()
 {
     return "timecode";
@@ -24,7 +33,7 @@ TimeCodeAttribute::staticTypeName ()
 
 
 template <>
-void
+IMF_EXPORT void
 TimeCodeAttribute::writeValueTo (OPENEXR_IMF_INTERNAL_NAMESPACE::OStream &os, int version) const
 {
     Xdr::write <StreamIO> (os, _value.timeAndFlags());
@@ -33,7 +42,7 @@ TimeCodeAttribute::writeValueTo (OPENEXR_IMF_INTERNAL_NAMESPACE::OStream &os, in
 
 
 template <>
-void
+IMF_EXPORT void
 TimeCodeAttribute::readValueFrom (OPENEXR_IMF_INTERNAL_NAMESPACE::IStream &is, int size, int version)
 {
     unsigned int tmp;
@@ -44,6 +53,8 @@ TimeCodeAttribute::readValueFrom (OPENEXR_IMF_INTERNAL_NAMESPACE::IStream &is, i
     Xdr::read <StreamIO> (is, tmp);
     _value.setUserData (tmp);
 }
+
+template class IMF_EXPORT_TEMPLATE_INSTANCE TypedAttribute<OPENEXR_IMF_INTERNAL_NAMESPACE::TimeCode>;
 
 
 OPENEXR_IMF_INTERNAL_NAMESPACE_SOURCE_EXIT 

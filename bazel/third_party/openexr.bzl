@@ -21,7 +21,34 @@ def openexr_deps():
         http_archive,
         name = "Imath",
         build_file = "@openexr//:bazel/third_party/Imath.BUILD",
-        strip_prefix = "Imath-b1b5c7cb5f104bcf904d0925cca3abf3cc0f403f",
-        sha256 = "d116f2535253c78f1bf44815be55d5f133b3155485c9e95c667a4d0d32ee10ff",
-        urls = ["https://github.com/AcademySoftwareFoundation/Imath/archive/b1b5c7cb5f104bcf904d0925cca3abf3cc0f403f.zip"],
+        strip_prefix = "Imath-3.0.0-beta",
+        sha256 = "69fe9cb97bcaf155a1441aac8e12f35cfe826fb1f60feeb7afb4ceec079e5034",
+        urls = ["https://github.com/AcademySoftwareFoundation/Imath/archive/v3.0.0-beta.tar.gz"],
     )
+
+def _generate_header_impl(ctx):
+    out = ctx.actions.declare_file(ctx.label.name)
+    ctx.actions.expand_template(
+        output = out,
+        template = ctx.file.template,
+        substitutions = ctx.attr.substitutions,
+    )
+    return [CcInfo(
+        compilation_context = cc_common.create_compilation_context(
+            includes = depset([out.dirname]),
+            headers = depset([out]),
+        ),
+    )]
+
+openexr_generate_header = rule(
+    implementation = _generate_header_impl,
+    attrs = {
+        "substitutions": attr.string_dict(
+            mandatory = True,
+        ),
+        "template": attr.label(
+            allow_single_file = [".h.in"],
+            mandatory = True,
+        ),
+    },
+)

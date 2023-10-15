@@ -14,14 +14,20 @@
 //
 //-----------------------------------------------------------------------------
 
-#include <string.h>
-#include "ImfNamespace.h"
 #include "ImfExport.h"
+#include "ImfNamespace.h"
+
+#include <cstring>
+
+#if defined(_MSC_VER)
+#pragma warning( push, 0 )
+#pragma warning (disable : 4996)
+#endif
 
 OPENEXR_IMF_INTERNAL_NAMESPACE_HEADER_ENTER
 
 
-class Name
+class IMF_EXPORT_TYPE Name
 {
   public:
 
@@ -29,18 +35,20 @@ class Name
     // Constructors
     //-------------
 
-    IMF_EXPORT
     Name ();
-    IMF_EXPORT
     Name (const char text[]);
+    Name (const Name &) = default;
+    Name (Name &&) = default;
+    ~Name () = default;
 
 
     //--------------------
     // Assignment operator
     //--------------------
 
-    IMF_EXPORT
-    Name &		operator = (const char text[]);
+    Name &operator = (const Name &) = default;
+    Name &operator = (Name &&) = default;
+    Name &operator = (const char text[]);
 
 
     //---------------------
@@ -63,15 +71,6 @@ class Name
 
     char		_text[SIZE];
 };
-
-
-IMF_EXPORT
-bool operator == (const Name &x, const Name &y);
-IMF_EXPORT
-bool operator != (const Name &x, const Name &y);
-IMF_EXPORT
-bool operator < (const Name &x, const Name &y);
-
 
 //-----------------
 // Inline functions
@@ -108,9 +107,37 @@ operator == (const Name &x, const Name &y)
 
 
 inline bool
+operator == (const Name &x, const char text[])
+{
+    return strcmp (*x, text) == 0;
+}
+
+
+inline bool
+operator == (const char text[], const Name &y)
+{
+    return strcmp (text, *y) == 0;
+}
+
+
+inline bool
 operator != (const Name &x, const Name &y)
 {
     return !(x == y);
+}
+
+
+inline bool
+operator != (const Name &x, const char text[])
+{
+    return !(x == text);
+}
+
+
+inline bool
+operator != (const char text[], const Name &y)
+{
+    return !(text == y);
 }
 
 
@@ -121,9 +148,24 @@ operator < (const Name &x, const Name &y)
 }
 
 
+inline bool
+operator < (const Name &x, const char text[])
+{
+    return strcmp (*x, text) < 0;
+}
+
+
+inline bool
+operator < (const char text[], const Name &y)
+{
+    return strcmp (text, *y) < 0;
+}
+
+
 OPENEXR_IMF_INTERNAL_NAMESPACE_HEADER_EXIT
 
-
-
+#if defined(_MSC_VER)
+#pragma warning (pop)
+#endif
 
 #endif
