@@ -256,7 +256,7 @@ struct DwaCompressor::Classifier
         _caseInsensitive(caseInsensitive)
     {
         if (caseInsensitive) 
-            transform(_suffix.begin(), _suffix.end(), _suffix.begin(), tolower);
+            std::transform(_suffix.begin(), _suffix.end(), _suffix.begin(), tolower);
     }
 
     Classifier (const char *&ptr, int size)
@@ -305,7 +305,7 @@ struct DwaCompressor::Classifier
         if (_caseInsensitive) 
         {
             std::string tmp(suffix);
-            transform(tmp.begin(), tmp.end(), tmp.begin(), tolower);
+            std::transform(tmp.begin(), tmp.end(), tmp.begin(), tolower);
             return tmp == _suffix;
         }
 
@@ -948,7 +948,7 @@ DwaCompressor::LossyDctDecoderBase::execute ()
                 }
                 else
                 {
-                    #if IMF_HAVE_SSE2
+                    #ifdef IMF_HAVE_SSE2
 
                         __m128i *dst = (__m128i*)&rowBlock[comp][blockx*64];
 
@@ -1932,7 +1932,7 @@ DwaCompressor::compress
     if (outBufferSize > _outBufferSize) 
     {
         _outBufferSize = outBufferSize;
-        if (_outBuffer == 0)
+        if (_outBuffer != 0)
             delete[] _outBuffer;       
         _outBuffer = new char[outBufferSize];
     }
@@ -2386,7 +2386,12 @@ DwaCompressor::uncompress
 
     const char *dataPtr            = inPtr + NUM_SIZES_SINGLE * sizeof(Int64);
 
-    if (inSize < headerSize + compressedSize) 
+    /* Both the sum and individual sizes are checked in case of overflow. */
+    if (inSize < (headerSize + compressedSize) ||
+        inSize < unknownCompressedSize ||
+        inSize < acCompressedSize ||
+        inSize < dcCompressedSize ||
+        inSize < rleCompressedSize)
     {
         throw Iex::InputExc("Error uncompressing DWA data"
                             "(truncated file).");

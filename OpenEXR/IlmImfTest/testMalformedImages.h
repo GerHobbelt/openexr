@@ -1,12 +1,10 @@
 ///////////////////////////////////////////////////////////////////////////
 //
-// Copyright (c) 2012, Autodesk, Inc.
-// 
+// Copyright (c) 2002-2012, Industrial Light & Magic, a division of Lucas
+// Digital Ltd. LLC
+//
 // All rights reserved.
 //
-// Implementation of IIF-specific file format and speed optimizations 
-// provided by Innobec Technologies inc on behalf of Autodesk.
-// 
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
@@ -18,8 +16,8 @@
 // distribution.
 // *       Neither the name of Industrial Light & Magic nor the names of
 // its contributors may be used to endorse or promote products derived
-// from this software without specific prior written permission. 
-// 
+// from this software without specific prior written permission.
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -34,26 +32,6 @@
 //
 ///////////////////////////////////////////////////////////////////////////
 
-#ifndef INCLUDED_IMF_SIMD_H
-#define INCLUDED_IMF_SIMD_H
+#include <string>
 
-//
-// Compile time SSE detection:
-//    IMF_HAVE_SSE2 - Defined if it's safe to compile SSE2 optimizations
-//
-
-
-// GCC and Visual Studio SSE2 compiler flags
-#if defined __SSE2__ || (_MSC_VER >= 1300 && !_M_CEE_PURE)
-    #define IMF_HAVE_SSE2 1
-#endif
-
-extern "C"
-{
-#ifdef IMF_HAVE_SSE2
-    #include <emmintrin.h>
-    #include <mmintrin.h>
-#endif
-}
-
-#endif
+void testMalformedImages (const std::string &tempDir);

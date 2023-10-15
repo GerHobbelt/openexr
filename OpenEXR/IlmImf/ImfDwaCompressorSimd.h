@@ -51,6 +51,8 @@
 #include <half.h>
 #include <assert.h>
 
+#include <algorithm>
+
 OPENEXR_IMF_INTERNAL_NAMESPACE_HEADER_ENTER
 
 #define _SSE_ALIGNMENT        32
@@ -89,6 +91,12 @@ class SimdAlignedBuffer64
         {
             alloc();
             memcpy (_buffer, rhs._buffer, 64 * sizeof (T));
+        }
+
+        SimdAlignedBuffer64 &operator=(const SimdAlignedBuffer64 &rhs)
+        {
+            memcpy (_buffer, rhs._buffer, 64 * sizeof (T));
+            return *this;
         }
 
         ~SimdAlignedBuffer64 ()
