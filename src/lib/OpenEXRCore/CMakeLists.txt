@@ -14,7 +14,15 @@ openexr_define_library(OpenEXRCore
     internal_coding.h
     internal_constants.h
     internal_compress.h
+    internal_cpuid.h
     internal_decompress.h
+    internal_dwa_channeldata.h
+    internal_dwa_classifier.h
+    internal_dwa_compressor.h
+    internal_dwa_decoder.h
+    internal_dwa_encoder.h
+    internal_dwa_helpers.h
+    internal_dwa_simd.h
     internal_file.h
     internal_float_vector.h
     internal_huf.h
@@ -87,6 +95,8 @@ openexr_define_library(OpenEXRCore
     openexr_errors.h
     openexr_part.h
     openexr_std_attr.h
+    openexr_version.h
+
   PRIVATE_DEPS
     ${OPENEXR_EXTRA_MATH_LIB}
   )
