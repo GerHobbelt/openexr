@@ -19,9 +19,18 @@ endif()
 # configuration files
 #######################################
 
-include(cmake/OpenEXRVersion.cmake)
+project(OpenEXR VERSION 3.1.0 LANGUAGES C CXX)
 
-project(OpenEXR VERSION ${OPENEXR_VERSION} LANGUAGES C CXX)
+set(OPENEXR_VERSION_RELEASE_TYPE "-dev" CACHE STRING "Extra version tag string for OpenEXR build, such as -dev, -beta1, etc.")
+
+set(OPENEXR_VERSION ${OpenEXR_VERSION})
+set(OPENEXR_VERSION_API "${OpenEXR_VERSION_MAJOR}_${OpenEXR_VERSION_MINOR}")
+
+# See https://www.gnu.org/software/libtool/manual/html_node/Updating-version-info.html
+set(OPENEXR_SOVERSION 29)
+set(OPENEXR_SOAGE 0) 
+set(OPENEXR_SOREVISION 0) 
+set(OPENEXR_LIB_VERSION "${OPENEXR_SOVERSION}.${OPENEXR_SOREVISION}.${OPENEXR_SOAGE}")
 
 option(OPENEXR_INSTALL "Install OpenEXR libraries" ON)
 option(OPENEXR_INSTALL_TOOLS "Install OpenEXR tools" ON)
@@ -32,6 +41,8 @@ endif()
 include(cmake/LibraryDefine.cmake)
 include(cmake/OpenEXRSetup.cmake)
 add_subdirectory(cmake)
+
+message(STATUS "Configure ${OPENEXR_PACKAGE_NAME}, library API version: ${OPENEXR_LIB_VERSION}")
 
 # Hint: This can be set to enable custom find_package
 # search paths, probably best to set it when configuring

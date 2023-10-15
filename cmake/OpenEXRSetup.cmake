@@ -23,7 +23,7 @@ set(tmp)
 set(OPENEXR_NAMESPACE_CUSTOM "0" CACHE STRING "Whether the namespace has been customized (so external users know)")
 set(OPENEXR_INTERNAL_IMF_NAMESPACE "Imf_${OPENEXR_VERSION_API}" CACHE STRING "Real namespace for Imath that will end up in compiled symbols")
 set(OPENEXR_IMF_NAMESPACE "Imf" CACHE STRING "Public namespace alias for OpenEXR")
-set(OPENEXR_PACKAGE_NAME "OpenEXR ${OPENEXR_VERSION}" CACHE STRING "Public string / label for displaying package")
+set(OPENEXR_PACKAGE_NAME "OpenEXR ${OPENEXR_VERSION}${OPENEXR_VERSION_RELEASE_TYPE}" CACHE STRING "Public string / label for displaying package")
 
 # Namespace-related settings, allows one to customize the
 # namespace generated, and to version the namespaces
@@ -260,9 +260,6 @@ find_package(Imath QUIET)
 set(CMAKE_IGNORE_PATH)
 
 if(NOT TARGET Imath::Imath AND NOT Imath_FOUND)
-  if (${CMAKE_VERSION} VERSION_LESS "3.11.0")
-    message(FATAL_ERROR "CMake 3.11 or newer is required for FetchContent, you must manually install Imath if you are using an earlier version of CMake")
-  endif()
   message(STATUS "Imath was not found, installing from ${IMATH_REPO} (${IMATH_TAG})")
   
   include(FetchContent)
