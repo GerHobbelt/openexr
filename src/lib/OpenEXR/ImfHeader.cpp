@@ -1270,6 +1270,21 @@ Header::setMaxTileSize (int maxWidth, int maxHeight)
     maxTileHeight = maxHeight;
 }
 
+void
+Header::getMaxImageSize (int& maxWidth, int& maxHeight)
+{
+    maxWidth = maxImageWidth;
+    maxHeight = maxImageHeight;
+}
+
+void
+Header::getMaxTileSize (int& maxWidth, int& maxHeight)
+{
+    maxWidth = maxTileWidth;
+    maxHeight= maxTileHeight;
+}
+
+
 bool
 Header::readsNothing ()
 {
@@ -1485,8 +1500,15 @@ staticInitialize ()
         V3dAttribute::registerAttributeType ();
         V3fAttribute::registerAttributeType ();
         V3iAttribute::registerAttributeType ();
-        DwaCompressor::initializeFuncs ();
         IDManifestAttribute::registerAttributeType ();
+
+        //
+        // Register functions, for example specialized functions
+        // for different CPU architectures.
+        //
+
+        DwaCompressor::initializeFuncs ();
+        Zip::initializeFuncs ();
 
         initialized = true;
     }

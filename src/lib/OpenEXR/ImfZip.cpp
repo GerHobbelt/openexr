@@ -8,6 +8,7 @@
 #include "ImfCheckedArithmetic.h"
 #include "ImfNamespace.h"
 #include "ImfSimd.h"
+#include "ImfSystemSpecific.h"
 
 #include <math.h>
 #include <zlib.h>
@@ -93,13 +94,14 @@ Zip::compress (const char* raw, int rawSize, char* compressed)
     // Compress the data using zlib
     //
 
-    uLongf outSize = int (ceil (rawSize * 1.01)) + 100;
+    uLong inSize = static_cast<uLong> (rawSize);
+    uLong outSize = compressBound (inSize);
 
     if (Z_OK != ::compress2 (
-                    (Bytef*) compressed,
+                    reinterpret_cast<Bytef*> (compressed),
                     &outSize,
-                    (const Bytef*) _tmpBuffer,
-                    rawSize,
+                    reinterpret_cast<const Bytef*> (_tmpBuffer),
+                    inSize,
                     _zipLevel))
     {
         throw IEX_NAMESPACE::BaseExc ("Data compression (zlib) failed.");
@@ -108,9 +110,12 @@ Zip::compress (const char* raw, int rawSize, char* compressed)
     return outSize;
 }
 
+namespace
+{
+
 #ifdef IMF_HAVE_SSE4_1
 
-static void
+void
 reconstruct_sse41 (char* buf, size_t outSize)
 {
     static const size_t bytesPerChunk = sizeof (__m128i);
@@ -153,9 +158,9 @@ reconstruct_sse41 (char* buf, size_t outSize)
     }
 }
 
-#else
+#endif
 
-static void
+void
 reconstruct_scalar (char* buf, size_t outSize)
 {
     unsigned char* t    = (unsigned char*) buf + 1;
@@ -169,11 +174,9 @@ reconstruct_scalar (char* buf, size_t outSize)
     }
 }
 
-#endif
-
 #ifdef IMF_HAVE_SSE2
 
-static void
+void
 interleave_sse2 (const char* source, size_t outSize, char* out)
 {
     static const size_t bytesPerChunk = 2 * sizeof (__m128i);
@@ -207,9 +210,9 @@ interleave_sse2 (const char* source, size_t outSize, char* out)
     }
 }
 
-#else
+#endif
 
-static void
+void
 interleave_scalar (const char* source, size_t outSize, char* out)
 {
     const char* t1   = source;
@@ -231,7 +234,10 @@ interleave_scalar (const char* source, size_t outSize, char* out)
     }
 }
 
-#endif
+auto reconstruct = reconstruct_scalar;
+auto interleave = interleave_scalar;
+
+} // namespace
 
 int
 Zip::uncompress (const char* compressed, int compressedSize, char* raw)
@@ -240,13 +246,14 @@ Zip::uncompress (const char* compressed, int compressedSize, char* raw)
     // Decompress the data using zlib
     //
 
-    uLongf outSize = _maxRawSize;
+    uLong outSize = static_cast<uLong> (_maxRawSize);
+    uLong inSize = static_cast<uLong> (compressedSize);
 
     if (Z_OK != ::uncompress (
-                    (Bytef*) _tmpBuffer,
+                    reinterpret_cast<Bytef*> (_tmpBuffer),
                     &outSize,
-                    (const Bytef*) compressed,
-                    compressedSize))
+                    reinterpret_cast<const Bytef*> (compressed),
+                    inSize))
     {
         throw IEX_NAMESPACE::InputExc ("Data decompression (zlib) failed.");
     }
@@ -256,22 +263,34 @@ Zip::uncompress (const char* compressed, int compressedSize, char* raw)
     //
     // Predictor.
     //
-#ifdef IMF_HAVE_SSE4_1
-    reconstruct_sse41 (_tmpBuffer, outSize);
-#else
-    reconstruct_scalar (_tmpBuffer, outSize);
-#endif
+    reconstruct (_tmpBuffer, outSize);
 
     //
     // Reorder the pixel data.
     //
-#ifdef IMF_HAVE_SSE2
-    interleave_sse2 (_tmpBuffer, outSize, raw);
-#else
-    interleave_scalar (_tmpBuffer, outSize, raw);
-#endif
+    interleave (_tmpBuffer, outSize, raw);
 
     return outSize;
+}
+
+void
+Zip::initializeFuncs ()
+{
+    CpuId cpuId;
+
+#ifdef IMF_HAVE_SSE4_1
+    if (cpuId.sse4_1)
+    {
+        reconstruct = reconstruct_sse41;
+    }
+#endif
+
+#ifdef IMF_HAVE_SSE2
+    if (cpuId.sse2) 
+    {
+        interleave = interleave_sse2;
+    }
+#endif
 }
 
 OPENEXR_IMF_INTERNAL_NAMESPACE_SOURCE_EXIT
