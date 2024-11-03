@@ -59,10 +59,9 @@ MultiPartInputFile::MultiPartInputFile (
         const ContextInitializer& ctxtinit,
         int                       numThreads,
         bool                      autoAddType)
-    : _data (std::make_shared<Data> ())
+    : _ctxt (filename, ctxtinit, Context::read_mode_t{})
+    , _data (std::make_shared<Data> ())
 {
-    _ctxt.startRead (filename, ctxtinit);
-
     int version = _ctxt.version ();
     int pc = _ctxt.partCount ();
     _data->parts.resize (pc);
@@ -72,9 +71,9 @@ MultiPartInputFile::MultiPartInputFile (
     _data->ism->currentPosition = _data->ism->is->tellg ();
     for ( int p = 0; p < pc; ++p )
     {
-        _data->parts[p].data = InputPartData (_ctxt, p, numThreads
-                                              , _data->ism.get ()
-                                              );
+        _data->parts[p].data = InputPartData (
+            _ctxt, p, numThreads, _data->ism.get ());
+
         if (autoAddType && ! _data->parts[p].data.header.hasType ())
         {
             if (isTiled (version))

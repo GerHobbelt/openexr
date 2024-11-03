@@ -73,9 +73,6 @@ struct TileProcess
 //
 
 struct TiledInputFile::Data
-#if ILMTHREAD_THREADING_ENABLED
-    : public std::mutex
-#endif
 {
     Data (Context *ctxt, int pN, int nT)
     : _ctxt (ctxt)
@@ -201,9 +198,9 @@ TiledInputFile::TiledInputFile (
     const char*               filename,
     const ContextInitializer& ctxtinit,
     int                       numThreads)
-    : _data (std::make_shared<Data> (&_ctxt, 0, numThreads))
+    : _ctxt (filename, ctxtinit, Context::read_mode_t{})
+    , _data (std::make_shared<Data> (&_ctxt, 0, numThreads))
 {
-    _ctxt.startRead (filename, ctxtinit);
     _data->initialize ();
 }
 
