@@ -36,7 +36,6 @@ istream_read (
 {
     istream_holder* ih    = static_cast<istream_holder*> (userdata);
     IStream*        s     = ih->_stream;
-    int64_t         nread = s->tellg ();
 
     if (sz > INT_MAX)
     {
@@ -51,6 +50,7 @@ istream_read (
     std::lock_guard<std::mutex> lk{ih->_mx};
 #endif
 
+    int64_t         nread = s->tellg ();
     try
     {
         if (offset != static_cast<size_t> (nread))
@@ -88,8 +88,23 @@ istream_read (
         }
         nread = s->tellg () - nread;
     }
+    catch (std::exception &e)
+    {
+        error_cb (
+            ctxt,
+            EXR_ERR_READ_IO,
+            "Unable to seek to desired offset %" PRIu64 ": %s",
+            offset,
+            e.what());
+        nread = -1;
+    }
     catch (...)
     {
+        error_cb (
+            ctxt,
+            EXR_ERR_READ_IO,
+            "Unable to seek to desired offset %" PRIu64 ": Unknown error",
+            offset);
         nread = -1;
     }
     return nread;

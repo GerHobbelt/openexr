@@ -356,6 +356,8 @@ exr_decoding_choose_default_routines (
 
         if (decc->height == 0 || !decc->decode_to_ptr) continue;
 
+        if (isdeep) continue;
+
         /*
          * if a user specifies a bad pixel stride / line stride
          * we can't know this realistically, and they may want to
@@ -601,10 +603,24 @@ exr_decoding_run (
 
             if (decode->chunk.sample_count_table_size > 0)
             {
-                memcpy (
-                    decode->sample_count_table,
-                    decode->packed_sample_count_table,
-                    sampsize);
+                if (decode->chunk.sample_count_table_size < sampsize)
+                {
+                    memcpy (
+                        decode->sample_count_table,
+                        decode->packed_sample_count_table,
+                        decode->chunk.sample_count_table_size);
+                    memset (
+                        decode->sample_count_table + (decode->chunk.sample_count_table_size / sizeof(int32_t)),
+                        0,
+                        sampsize - decode->chunk.sample_count_table_size);
+                }
+                else
+                {
+                    memcpy (
+                        decode->sample_count_table,
+                        decode->packed_sample_count_table,
+                        sampsize);
+                }
             }
             else
             {
