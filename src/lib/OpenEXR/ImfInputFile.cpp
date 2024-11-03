@@ -54,9 +54,10 @@ struct InputFile::Data
 #if ILMTHREAD_THREADING_ENABLED
         std::lock_guard<std::mutex> lk (_mx);
 #endif
-        if (part < pc)
+        if (part >= 0 && part < pc)
         {
             int cursz = static_cast<int> (_lazy_header_cache.size ());
+            // lazily build up the cache of headers
             if (part >= cursz)
             {
                 _lazy_header_cache.resize (static_cast<size_t> (part) + 1);
@@ -81,6 +82,13 @@ struct InputFile::Data
     void bufferedReadPixels (int scanline1, int scanline2);
 
     void deleteCachedBuffer (void);
+    void copyCachedBuffer (FrameBuffer::ConstIterator to,
+                           FrameBuffer::ConstIterator from,
+                           int scanline1, int scanline2,
+                           int yStart, int xStart, int width);
+    void fillBuffer (FrameBuffer::ConstIterator to,
+                     int scanline1, int scanline2,
+                     int yStart, int xStart, int width);
 
     IStream* getCompatStream () { return _ctxt->legacyIStream (getPartIdx ()); }
 
@@ -103,9 +111,6 @@ struct InputFile::Data
     std::unique_ptr<CompositeDeepScanLine>
         _compositor; // for loading deep files
 
-    // TODO: remove once we can remove deprecated API
-    std::vector<char> _pixel_data_scratch;
-
     // TODO: remove once we can remove deprecated API or to make it slow so
     // people switch to the new UI
     std::vector<Header> _lazy_header_cache;
@@ -114,43 +119,47 @@ struct InputFile::Data
     int                          _cachedTileY  = -1;
     int                          _cachedOffset = 0;
     std::unique_ptr<FrameBuffer> _cachedBuffer;
+    std::vector< std::unique_ptr<char[]> > _slicePointers;
 };
 
 InputFile::InputFile (
     const char* filename, const ContextInitializer& ctxtinit, int numThreads)
     : _data (std::make_shared<Data> (&_ctxt, numThreads))
 {
-    _ctxt.startRead (filename, ctxtinit);
+    _data->_mFile.reset (new MultiPartInputFile (filename, ctxtinit, numThreads, false));
+    _data->_part = _data->_mFile->getPart (Data::kDefaultPart);
+    _ctxt = _data->_part->context;
+
+    (void)_ctxt.legacyIStream (Data::kDefaultPart);
+
     initialize ();
 }
 
 InputFile::InputFile (const char filename[], int numThreads)
-    : InputFile (filename, ContextInitializer (), numThreads)
+    : InputFile (filename,
+                 ContextInitializer ()
+                 .silentHeaderParse (true)
+                 .strictHeaderValidation (false),
+                 numThreads)
 {}
 
 InputFile::InputFile (
     OPENEXR_IMF_INTERNAL_NAMESPACE::IStream& is, int numThreads)
     : InputFile (
           is.fileName (),
-          ContextInitializer ().setInputStream (&is),
+          ContextInitializer ()
+          .silentHeaderParse (true)
+          .strictHeaderValidation (false)
+          .setInputStream (&is),
           numThreads)
 {}
 
 InputFile::InputFile (InputPartData* part)
-    : _data (std::make_shared<Data> (&_ctxt, part->numThreads))
+    : _ctxt (part->context),
+      _data (std::make_shared<Data> (&_ctxt, part->numThreads))
 {
-    // TODO: janky, this will reread things for now (should share
-    // context between objects eventually)
-    _ctxt.startRead (
-        part->mutex->is->fileName (),
-        ContextInitializer ().setInputStream (part->mutex->is));
-
     _data->_part = part;
     initialize ();
-}
-
-InputFile::~InputFile ()
-{
 }
 
 const char*
@@ -223,84 +232,14 @@ void
 InputFile::rawPixelData (
     int firstScanLine, const char*& pixelData, int& pixelDataSize)
 {
-    uint64_t maxsize = 0;
-    if (EXR_ERR_SUCCESS !=
-        exr_get_chunk_unpacked_size (_ctxt, _data->getPartIdx (), &maxsize))
-    {
-        THROW (
-            IEX_NAMESPACE::ArgExc,
-            "Unable to query data size of chunk in file '" << fileName ()
-                                                           << "'");
-    }
-
-    // again, doesn't actually provide any safety given we're handing
-    // back a pointer... but will at least prevent two threads
-    // allocating at the same time and getting sliced
-#if ILMTHREAD_THREADING_ENABLED
-    std::lock_guard<std::mutex> lock (_data->_mx);
-#endif
-    _data->_pixel_data_scratch.resize (maxsize);
-
-    pixelData     = _data->_pixel_data_scratch.data ();
-    pixelDataSize = static_cast<int> (maxsize);
-
-    rawPixelDataToBuffer (
-        firstScanLine, _data->_pixel_data_scratch.data (), pixelDataSize);
+    _data->_sFile->rawPixelData (firstScanLine, pixelData, pixelDataSize);
 }
 
 void
 InputFile::rawPixelDataToBuffer (
     int scanLine, char* pixelData, int& pixelDataSize) const
 {
-    exr_chunk_info_t cinfo;
-    if (EXR_ERR_SUCCESS == exr_read_scanline_chunk_info (
-                               _ctxt, _data->getPartIdx (), scanLine, &cinfo))
-    {
-        if (cinfo.packed_size > static_cast<uint64_t> (pixelDataSize))
-        {
-            THROW (
-                IEX_NAMESPACE::ArgExc,
-                "Error reading pixel data from image "
-                "file \""
-                    << fileName ()
-                    << "\". Provided buffer is too small to read raw pixel data:"
-                    << pixelDataSize << " bytes.");
-        }
-
-        pixelDataSize = static_cast<int> (cinfo.packed_size);
-
-        if (EXR_ERR_SUCCESS !=
-            exr_read_chunk (_ctxt, _data->getPartIdx (), &cinfo, pixelData))
-        {
-            THROW (
-                IEX_NAMESPACE::ArgExc,
-                "Error reading pixel data from image "
-                "file \""
-                    << fileName () << "\". Unable to read raw pixel data of "
-                    << pixelDataSize << " bytes.");
-        }
-    }
-    else
-    {
-        if (_data->_storage == EXR_STORAGE_TILED)
-        {
-            THROW (
-                IEX_NAMESPACE::ArgExc,
-                "Error reading pixel data from image "
-                "file \""
-                    << fileName ()
-                    << "\". Tried to read a raw scanline from a tiled image.");
-        }
-        else
-        {
-            THROW (
-                IEX_NAMESPACE::ArgExc,
-                "Error reading pixel data from image "
-                "file \""
-                    << fileName ()
-                    << "\". Unable to query data block information.");
-        }
-    }
+    _data->_sFile->rawPixelDataToBuffer (scanLine, pixelData, pixelDataSize);
 }
 
 void
@@ -339,14 +278,6 @@ InputFile::rawTileData (
 TiledInputFile&
 InputFile::asTiledInput (void) const
 {
-    if (_data->_part)
-    {
-        THROW (
-            IEX_NAMESPACE::ArgExc,
-            "Tried to initialize a copy tile input file "
-            "from a multi-part-converted input file.");
-    }
-
     return *(_data->_tFile);
 }
 
@@ -355,33 +286,13 @@ InputFile::initialize (void)
 {
     int partidx;
 
-    if (!_data->_part && _ctxt.partCount() > 1)
-    {
-        IStream *s = _data->getCompatStream ();
-
-        s->seekg (0);
-        _data->_mFile.reset (new MultiPartInputFile (*s, _data->_numThreads));
-        _data->_part = _data->_mFile->getPart (0);
-    }
-
     partidx = _data->getPartIdx ();
     _data->_storage = _ctxt.storage (partidx);
 
     // silly protection rules mean make_unique can't be used here
     if (_data->_storage == EXR_STORAGE_DEEP_SCANLINE)
     {
-        if (_data->_part)
-        {
-            _data->_dsFile.reset (new DeepScanLineInputFile (_data->_part));
-        }
-        else
-        {
-            _data->_dsFile.reset (new DeepScanLineInputFile (
-                _data->getHeader (partidx),
-                _data->getCompatStream (),
-                _ctxt.version (),
-                _data->_numThreads));
-        }
+        _data->_dsFile.reset (new DeepScanLineInputFile (_data->_part));
         _data->_compositor = std::make_unique<CompositeDeepScanLine> ();
         _data->_compositor->addSource (_data->_dsFile.get ());
     }
@@ -389,32 +300,11 @@ InputFile::initialize (void)
         _data->_storage == EXR_STORAGE_DEEP_TILED ||
         _data->_storage == EXR_STORAGE_TILED)
     {
-        if (_data->_part)
-        {
-            _data->_tFile.reset (new TiledInputFile (_data->_part));
-        }
-        else
-        {
-            _data->_tFile.reset (new TiledInputFile (
-                _data->getHeader (partidx),
-                _data->getCompatStream (),
-                _ctxt.version (),
-                _data->_numThreads));
-        }
+        _data->_tFile.reset (new TiledInputFile (_data->_part));
     }
     else if (_data->_storage == EXR_STORAGE_SCANLINE)
     {
-        if (_data->_part)
-        {
-            _data->_sFile.reset (new ScanLineInputFile (_data->_part));
-        }
-        else
-        {
-            _data->_sFile.reset (new ScanLineInputFile (
-                _data->getHeader (partidx),
-                _data->getCompatStream (),
-                _data->_numThreads));
-        }
+        _data->_sFile.reset (new ScanLineInputFile (_data->_part));
     }
     else
     {
@@ -490,67 +380,26 @@ InputFile::Data::setFrameBuffer (const FrameBuffer& frameBuffer)
                 //
                 if (_ctxt->hasChannel (partidx, k.name ()))
                 {
-                    switch (s.type)
-                    {
-                        case OPENEXR_IMF_INTERNAL_NAMESPACE::UINT:
-                            _cachedBuffer->insert (
-                                k.name (),
-                                Slice (
-                                    UINT,
-                                    (char*) (new unsigned int[tileRowSize] -
-                                             _cachedOffset),
-                                    sizeof (unsigned int),
-                                    sizeof (unsigned int) *
-                                        _tFile->levelWidth (0),
-                                    1,
-                                    1,
-                                    s.fillValue,
-                                    false,
-                                    true));
-                            break;
+                    uint64_t bytes = (s.type == OPENEXR_IMF_INTERNAL_NAMESPACE::HALF) ? 2 : 4;
+                    uint64_t offset = bytes * _cachedOffset;
+                    uint64_t tilebytes = bytes * tileRowSize;
 
-                        case OPENEXR_IMF_INTERNAL_NAMESPACE::HALF:
+                    _slicePointers.emplace_back (std::make_unique<char[]> (tilebytes));
 
-                            _cachedBuffer->insert (
-                                k.name (),
-                                Slice (
-                                    HALF,
-                                    (char*) (new half[tileRowSize] -
-                                             _cachedOffset),
-                                    sizeof (half),
-                                    sizeof (half) * _tFile->levelWidth (0),
-                                    1,
-                                    1,
-                                    s.fillValue,
-                                    false,
-                                    true));
-                            break;
-
-                        case OPENEXR_IMF_INTERNAL_NAMESPACE::FLOAT:
-
-                            _cachedBuffer->insert (
-                                k.name (),
-                                Slice (
-                                    OPENEXR_IMF_INTERNAL_NAMESPACE::FLOAT,
-                                    (char*) (new float[tileRowSize] -
-                                             _cachedOffset),
-                                    sizeof (float),
-                                    sizeof (float) * _tFile->levelWidth (0),
-                                    1,
-                                    1,
-                                    s.fillValue,
-                                    false,
-                                    true));
-                            break;
-
-                        default:
-
-                            throw IEX_NAMESPACE::ArgExc (
-                                "Unknown pixel data type.");
-                    }
+                    _cachedBuffer->insert (
+                        k.name (),
+                        Slice (
+                            s.type,
+                            _slicePointers.back ().get() - offset,
+                            bytes,
+                            bytes * _tFile->levelWidth (0),
+                            1,
+                            1,
+                            s.fillValue,
+                            false,
+                            true));
                 }
             }
-            _tFile->setFrameBuffer (*_cachedBuffer);
         }
 
         _cacheFrameBuffer = frameBuffer;
@@ -590,10 +439,6 @@ InputFile::Data::bufferedReadPixels (int scanLine1, int scanLine2)
 {
     exr_attr_box2i_t dataWindow = _ctxt->dataWindow (getPartIdx ());
 
-    using IMATH_NAMESPACE::Box2i;
-    using IMATH_NAMESPACE::divp;
-    using IMATH_NAMESPACE::modp;
-
     //
     // bufferedReadPixels reads each row of tiles that intersect the
     // scan-line range (scanLine1 to scanLine2). The previous row of
@@ -610,51 +455,21 @@ InputFile::Data::bufferedReadPixels (int scanLine1, int scanLine2)
                                      "the image file's data window.");
     }
 
-    //
-    // The minimum and maximum y tile coordinates that intersect this
-    // scanline range
-    //
-
     int minDy = (minY - dataWindow.min.y) / _tFile->tileYSize ();
     int maxDy = (maxY - dataWindow.min.y) / _tFile->tileYSize ();
 
-    //
-    // Figure out which one is first in the file so we can read without seeking
-    //
-
-    int yStart, yEnd, yStep;
-
-    if (_ctxt->lineOrder (getPartIdx ()) == EXR_LINEORDER_DECREASING_Y)
+    // if we're reading the whole thing, just skip the double copy entirely
+    if (minY == dataWindow.min.y && maxY == dataWindow.max.y)
     {
-        yStart = maxDy;
-        yEnd   = minDy - 1;
-        yStep  = -1;
-    }
-    else
-    {
-        yStart = minDy;
-        yEnd   = maxDy + 1;
-        yStep  = 1;
+        _tFile->setFrameBuffer (_cacheFrameBuffer);
+        _tFile->readTiles (0, _tFile->numXTiles (0) - 1, minDy, maxDy, 0, 0);
+        return;
     }
 
-    //
-    // the number of pixels in a row of tiles
-    //
+    _tFile->setFrameBuffer (*_cachedBuffer);
 
-    Box2i levelRange = _tFile->dataWindowForLevel (0);
-
-    //
-    // Read the tiles into our temporary framebuffer and copy them into
-    // the user's buffer
-    //
-
-    for (int j = yStart; j != yEnd; j += yStep)
+    for ( int j = minDy; j <= maxDy; ++j )
     {
-        Box2i tileRange = _tFile->dataWindowForTile (0, j, 0);
-
-        int minYThisRow = std::max (minY, tileRange.min.y);
-        int maxYThisRow = std::min (maxY, tileRange.max.y);
-
         if (j != _cachedTileY)
         {
             //
@@ -666,134 +481,161 @@ InputFile::Data::bufferedReadPixels (int scanLine1, int scanLine2)
             if (_cachedBuffer &&
                 _cachedBuffer->begin () != _cachedBuffer->end ())
             {
-                _tFile->readTiles (0, _tFile->numXTiles (0) - 1, j, j);
+                _tFile->readTiles (0, _tFile->numXTiles (0) - 1, j, j, 0, 0);
             }
 
             _cachedTileY = j;
         }
 
-        //
-        // Copy the data from our cached framebuffer into the user's
-        // framebuffer.
-        //
+        IMATH_NAMESPACE::Box2i tileRange = _tFile->dataWindowForTile (0, j, 0);
+
+        int minYThisRow = std::max (minY, tileRange.min.y);
+        int maxYThisRow = std::min (maxY, tileRange.max.y);
+
+        int xStart = dataWindow.min.x;
+        int width = dataWindow.max.x - dataWindow.min.x + 1;
 
         for (FrameBuffer::ConstIterator k = _cacheFrameBuffer.begin ();
              k != _cacheFrameBuffer.end ();
              ++k)
         {
-
-            Slice toSlice = k.slice (); // slice to read from
-            char* toPtr;
-
-            int xStart = levelRange.min.x;
-            int yStart = minYThisRow;
-
-            while (modp (xStart, toSlice.xSampling) != 0)
-                ++xStart;
-
-            while (modp (yStart, toSlice.ySampling) != 0)
-                ++yStart;
-
-            FrameBuffer::ConstIterator c = _cachedBuffer->find (k.name ());
-            intptr_t toBase = reinterpret_cast<intptr_t> (toSlice.base);
-
-            if (c != _cachedBuffer->end ())
+            if (_cachedBuffer)
             {
-                //
-                // output channel was read from source image: copy to output slice
-                //
-                Slice    fromSlice = c.slice (); // slice to write to
-                intptr_t fromBase = reinterpret_cast<intptr_t> (fromSlice.base);
-
-                int   size = pixelTypeSize (toSlice.type);
-                char* fromPtr;
-
-                for (int y = yStart; y <= maxYThisRow; y += toSlice.ySampling)
+                FrameBuffer::ConstIterator c = _cachedBuffer->find (k.name ());
+                if (c != _cachedBuffer->end ())
                 {
-                    //
-                    // Set the pointers to the start of the y scanline in
-                    // this row of tiles
-                    //
-
-                    fromPtr = reinterpret_cast<char*> (
-                        fromBase + (y - tileRange.min.y) * fromSlice.yStride +
-                        xStart * fromSlice.xStride);
-
-                    toPtr = reinterpret_cast<char*> (
-                        toBase + divp (y, toSlice.ySampling) * toSlice.yStride +
-                        divp (xStart, toSlice.xSampling) * toSlice.xStride);
-
-                    //
-                    // Copy all pixels for the scanline in this row of tiles
-                    //
-
-                    for (int x = xStart; x <= levelRange.max.x;
-                         x += toSlice.xSampling)
-                    {
-                        for (int i = 0; i < size; ++i)
-                            toPtr[i] = fromPtr[i];
-
-                        fromPtr += fromSlice.xStride * toSlice.xSampling;
-                        toPtr += toSlice.xStride;
-                    }
+                    copyCachedBuffer (k, c, minYThisRow, maxYThisRow,
+                                      tileRange.min.y, xStart, width);
+                    continue;
                 }
             }
-            else
+            fillBuffer (k, minYThisRow, maxYThisRow,
+                        dataWindow.min.y, xStart, width);
+        }
+    }
+}
+
+////////////////////////////////////////
+
+void
+InputFile::Data::copyCachedBuffer (FrameBuffer::ConstIterator to,
+                                   FrameBuffer::ConstIterator from,
+                                   int scanline1, int scanline2,
+                                   int yStart, int xStart, int width)
+{
+    Slice toSlice = to.slice ();
+    if (toSlice.xSampling != 1 || toSlice.ySampling != 1)
+        throw IEX_NAMESPACE::ArgExc ("Tiled data should not have subsampling.");
+    Slice fromSlice = from.slice ();
+    if (fromSlice.xSampling != 1 || fromSlice.ySampling != 1)
+        throw IEX_NAMESPACE::ArgExc ("Tiled data should not have subsampling.");
+    if (fromSlice.xTileCoords || !fromSlice.yTileCoords)
+        throw IEX_NAMESPACE::ArgExc ("Invalid expectation around tile coords flags from setFrameBuffer.");
+
+    if (toSlice.type != fromSlice.type)
+        throw IEX_NAMESPACE::ArgExc ("Invalid type mismatch in slice from setFrameBuffer.");
+    if (fromSlice.xStride != 2 && fromSlice.xStride != 4)
+        throw IEX_NAMESPACE::ArgExc ("Unhandled type in copying tile cache slice.");
+
+    for (int y = scanline1; y <= scanline2; ++y)
+    {
+        char* toPtr = toSlice.base;
+        const char* fromPtr = fromSlice.base;
+
+        if (toSlice.yTileCoords)
+            toPtr += (y - yStart) * toSlice.yStride;
+        else
+            toPtr += y * toSlice.yStride;
+        if (!toSlice.xTileCoords)
+            toPtr += xStart * toSlice.xStride;
+
+        fromPtr += (y - yStart) * fromSlice.yStride;
+        if (fromSlice.xStride == 2)
+        {
+            fromPtr += xStart * 2;
+            for (int x = 0; x < width; ++x)
             {
-
-                //
-                // channel wasn't present in source file: fill output slice
-                //
-                for (int y = yStart; y <= maxYThisRow; y += toSlice.ySampling)
-                {
-
-                    toPtr = reinterpret_cast<char*> (
-                        toBase + divp (y, toSlice.ySampling) * toSlice.yStride +
-                        divp (xStart, toSlice.xSampling) * toSlice.xStride);
-
-                    //
-                    // Copy all pixels for the scanline in this row of tiles
-                    //
-
-                    switch (toSlice.type)
-                    {
-                        case UINT: {
-                            unsigned int fill =
-                                static_cast<unsigned int> (toSlice.fillValue);
-                            for (int x = xStart; x <= levelRange.max.x;
-                                 x += toSlice.xSampling)
-                            {
-                                *reinterpret_cast<unsigned int*> (toPtr) = fill;
-                                toPtr += toSlice.xStride;
-                            }
-                            break;
-                        }
-                        case HALF: {
-                            half fill = toSlice.fillValue;
-                            for (int x = xStart; x <= levelRange.max.x;
-                                 x += toSlice.xSampling)
-                            {
-                                *reinterpret_cast<half*> (toPtr) = fill;
-                                toPtr += toSlice.xStride;
-                            }
-                            break;
-                        }
-                        case FLOAT: {
-                            float fill = toSlice.fillValue;
-                            for (int x = xStart; x <= levelRange.max.x;
-                                 x += toSlice.xSampling)
-                            {
-                                *reinterpret_cast<float*> (toPtr) = fill;
-                                toPtr += toSlice.xStride;
-                            }
-                            break;
-                        }
-                        case NUM_PIXELTYPES: {
-                            break;
-                        }
-                    }
-                }
+                *reinterpret_cast<uint16_t*> (toPtr) =
+                    *reinterpret_cast<const uint16_t*> (fromPtr);
+                toPtr += toSlice.xStride;
+                fromPtr += 2;
             }
+        }
+        else
+        {
+            fromPtr += xStart * 4;
+            for (int x = 0; x < width; ++x)
+            {
+                *reinterpret_cast<uint32_t*> (toPtr) =
+                    *reinterpret_cast<const uint32_t*> (fromPtr);
+                toPtr += toSlice.xStride;
+                fromPtr += 4;
+            }
+        }
+    }
+}
+
+////////////////////////////////////////
+
+void
+InputFile::Data::fillBuffer (FrameBuffer::ConstIterator to,
+                             int scanline1, int scanline2,
+                             int yStart, int xStart, int width)
+{
+    Slice toSlice = to.slice ();
+    if (toSlice.xSampling != 1 || toSlice.ySampling != 1)
+        throw IEX_NAMESPACE::ArgExc ("Tiled data should not have subsampling.");
+
+    for (int y = scanline1; y <= scanline2; ++y)
+    {
+        char* toPtr = toSlice.base;
+
+        if (toSlice.yTileCoords)
+            toPtr += (y - yStart) * toSlice.yStride;
+        else
+            toPtr += y * toSlice.yStride;
+        if (!toSlice.xTileCoords)
+            toPtr += xStart * toSlice.xStride;
+
+        //
+        // Copy all pixels for the scanline in this row of tiles
+        //
+
+        switch (toSlice.type)
+        {
+            case UINT:
+            {
+                unsigned int fill =
+                    static_cast<unsigned int> (toSlice.fillValue);
+                for (int x = 0; x < width; ++x)
+                {
+                    *reinterpret_cast<unsigned int*> (toPtr) = fill;
+                    toPtr += toSlice.xStride;
+                }
+                break;
+            }
+            case HALF:
+            {
+                half fill = toSlice.fillValue;
+                for (int x = 0; x < width; ++x)
+                {
+                    *reinterpret_cast<half*> (toPtr) = fill;
+                    toPtr += toSlice.xStride;
+                }
+                break;
+            }
+            case FLOAT:
+            {
+                float fill = toSlice.fillValue;
+                for (int x = 0; x < width; ++x)
+                {
+                    *reinterpret_cast<float*> (toPtr) = fill;
+                    toPtr += toSlice.xStride;
+                }
+                break;
+            }
+            case NUM_PIXELTYPES:
+                break;
         }
     }
 }
@@ -801,37 +643,8 @@ InputFile::Data::bufferedReadPixels (int scanLine1, int scanLine2)
 void
 InputFile::Data::deleteCachedBuffer (void)
 {
-    if (_cachedBuffer)
-    {
-        for (FrameBuffer::Iterator k = _cachedBuffer->begin ();
-             k != _cachedBuffer->end ();
-             ++k)
-        {
-            Slice& s = k.slice ();
-
-            switch (s.type)
-            {
-                case OPENEXR_IMF_INTERNAL_NAMESPACE::UINT:
-
-                    delete[] (((unsigned int*) s.base) + _cachedOffset);
-                    break;
-
-                case OPENEXR_IMF_INTERNAL_NAMESPACE::HALF:
-
-                    delete[] ((half*) s.base + _cachedOffset);
-                    break;
-
-                case OPENEXR_IMF_INTERNAL_NAMESPACE::FLOAT:
-
-                    delete[] (((float*) s.base) + _cachedOffset);
-                    break;
-                case NUM_PIXELTYPES:
-                    throw (IEX_NAMESPACE::ArgExc ("Invalid pixel type"));
-            }
-        }
-
-        _cachedBuffer.reset ();
-    }
+    _cachedBuffer.reset ();
+    _slicePointers.clear ();
     _cachedTileY = -1;
 }
 

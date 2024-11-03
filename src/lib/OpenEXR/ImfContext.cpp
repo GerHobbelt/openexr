@@ -67,8 +67,15 @@ public:
     bool read (char c[/*n*/], int n) override
     {
         std::lock_guard<std::mutex> lk (_mx);
-        if (_stdstream) return _stdstream->read (c, n);
-
+        try
+        {
+            if (_stdstream) return _stdstream->read (c, n);
+        }
+        catch (...)
+        {
+            _stdstream->clear ();
+            return false;
+        }
         int64_t nr = _read_fn (_ctxt, _user_data, c, n, _curpos, nullptr);
         if (nr > 0) _curpos += nr;
         return nr == n;
@@ -77,14 +84,28 @@ public:
     uint64_t tellg () override
     {
         std::lock_guard<std::mutex> lk (_mx);
-        if (_stdstream) return _stdstream->tellg ();
+        try
+        {
+            if (_stdstream) return _stdstream->tellg ();
+        }
+        catch (...)
+        {
+            _stdstream->clear ();
+        }
         return _curpos;
     }
 
     void seekg (uint64_t pos) override
     {
         std::lock_guard<std::mutex> lk (_mx);
-        if (_stdstream) return _stdstream->seekg (pos);
+        try
+        {
+            if (_stdstream) return _stdstream->seekg (pos);
+        }
+        catch (...)
+        {
+            _stdstream->clear ();
+        }
         _curpos = pos;
     }
 
@@ -359,6 +380,11 @@ Context::channels (int partidx) const
 bool
 Context::hasChannel (int partidx, const char* name) const
 {
+    return findChannel (partidx, name) != nullptr;
+}
+
+const exr_attr_chlist_entry_t* Context::findChannel (int partidx, const char* name) const
+{
     const exr_attr_chlist_t* cl  = channels (partidx);
     int32_t                  len = strlen (name);
 
@@ -367,10 +393,10 @@ Context::hasChannel (int partidx, const char* name) const
         const exr_attr_chlist_entry_t* curc = cl->entries + i;
         if (curc->name.length == len && 0 == memcmp (name, curc->name.str, len))
         {
-            return true;
+            return curc;
         }
     }
-    return false;
+    return nullptr;
 }
 
 ////////////////////////////////////////

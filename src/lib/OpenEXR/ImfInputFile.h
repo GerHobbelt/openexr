@@ -19,9 +19,6 @@
 
 #include "ImfContext.h"
 
-// TODO: remove this once multipart file is cleaned up
-#include "ImfGenericInputFile.h"
-
 OPENEXR_IMF_INTERNAL_NAMESPACE_HEADER_ENTER
 
 class TiledInputFile;
@@ -41,13 +38,13 @@ class TiledInputFile;
 /// multi-part images, or reading deep data there are other classes
 /// which provide API for handling that complexity more efficiently:
 ///
-/// InputFile
 /// MultiPartInputFile
 ///   can be constructed but not directly accessible
-///   - InputPart
+///   - InputPart (the part-based class corresponding to this class)
 ///   - TiledInputPart
 ///   - DeepTiledInputPart
 ///   - DeepScanlineInputPart
+///   - ScanlineInputPart [[[ NEW, but for consistency ]]]
 /// TiledInputFile
 /// DeepScanLineInputFile
 /// DeepTiledInputFile
@@ -60,13 +57,11 @@ class TiledInputFile;
 /// user. If a multi-part file is opened, the first part will be
 /// provided.
 ///
-/// for most code, it is suggested to use MultiPartInputFile and the
+/// For most code, it is suggested to use MultiPartInputFile and the
 /// API provided by the relevant part classes, but if only a simple
 /// API is needed, InputFile will certainly hide much of the
 /// complexity.
-///
-/// TODO: Remove GenericInputFile base class and virtual-ness
-class IMF_EXPORT_TYPE InputFile : public GenericInputFile
+class IMF_EXPORT_TYPE InputFile
 {
 public:
     //-------------------------------------------------------------
@@ -104,9 +99,6 @@ public:
         const ContextInitializer& ctxtinit,
         int                       numThreads = globalThreadCount ());
 
-    // TODO: remove once multipart is cleaned up
-    IMF_EXPORT ~InputFile () override;
-
     //------------------------
     // Access to the file name
     //------------------------
@@ -118,8 +110,6 @@ public:
     // Access to the file header
     //--------------------------
 
-    OPENEXR_DEPRECATED (
-        "Use context-based attribute access for faster retrieval")
     IMF_EXPORT
     const Header& header () const;
 
@@ -141,8 +131,6 @@ public:
     // to readPixels().
     //-----------------------------------------------------------
 
-    OPENEXR_DEPRECATED (
-        "Use stateless API to pass framebuffer with read request")
     IMF_EXPORT
     void setFrameBuffer (const FrameBuffer& frameBuffer);
 
@@ -150,8 +138,6 @@ public:
     // Access to the current frame buffer
     //-----------------------------------
 
-    OPENEXR_DEPRECATED (
-        "Use stateless API to pass framebuffer with read request")
     IMF_EXPORT
     const FrameBuffer& frameBuffer () const;
 
@@ -208,13 +194,9 @@ public:
     //
     //---------------------------------------------------------------
 
-    OPENEXR_DEPRECATED (
-        "Use stateless API to pass framebuffer with read request")
     IMF_EXPORT
     void readPixels (int scanLine1, int scanLine2);
 
-    OPENEXR_DEPRECATED (
-        "Use stateless API to pass framebuffer with read request")
     IMF_EXPORT
     void readPixels (int scanLine);
 
@@ -224,7 +206,6 @@ public:
     // used to implement OutputFile::copyPixels()).
     //----------------------------------------------
 
-    OPENEXR_DEPRECATED ("Prefer using externally managed buffer")
     IMF_EXPORT
     void rawPixelData (
         int firstScanLine, const char*& pixelData, int& pixelDataSize);
@@ -255,7 +236,6 @@ public:
     // used to implement TiledOutputFile::copyPixels()).
     //--------------------------------------------------
 
-    OPENEXR_DEPRECATED ("Prefer using externally managed buffer")
     IMF_EXPORT
     void rawTileData (
         int&         dx,
