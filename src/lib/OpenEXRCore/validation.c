@@ -20,9 +20,7 @@ static exr_result_t
 validate_req_attr (exr_context_t f, exr_priv_part_t curpart, int adddefault)
 {
     exr_result_t rv = EXR_ERR_SUCCESS;
-    if (!curpart->channels)
-        return f->print_error (
-            f, EXR_ERR_MISSING_REQ_ATTR, "'channels' attribute not found");
+
     if (!curpart->compression)
     {
         if (adddefault)
@@ -47,6 +45,11 @@ validate_req_attr (exr_context_t f, exr_priv_part_t curpart, int adddefault)
                 "'compression' attribute not found");
         }
     }
+    else if (curpart->compression->type != EXR_ATTR_COMPRESSION)
+        return f->print_error (
+            f,
+            EXR_ERR_ATTR_TYPE_MISMATCH,
+            "'compression' attribute has wrong data type");
 
     if (!curpart->dataWindow)
     {
@@ -75,6 +78,11 @@ validate_req_attr (exr_context_t f, exr_priv_part_t curpart, int adddefault)
                 "'dataWindow' attribute not found");
         }
     }
+    else if (curpart->dataWindow->type != EXR_ATTR_BOX2I)
+        return f->print_error (
+            f,
+            EXR_ERR_ATTR_TYPE_MISMATCH,
+            "'dataWindow' attribute has wrong data type");
 
     if (!curpart->displayWindow)
     {
@@ -101,6 +109,11 @@ validate_req_attr (exr_context_t f, exr_priv_part_t curpart, int adddefault)
                 "'displayWindow' attribute not found");
         }
     }
+    else if (curpart->displayWindow->type != EXR_ATTR_BOX2I)
+        return f->print_error (
+            f,
+            EXR_ERR_ATTR_TYPE_MISMATCH,
+            "'displayWindow' attribute has wrong data type");
 
     if (!curpart->lineOrder)
     {
@@ -124,6 +137,11 @@ validate_req_attr (exr_context_t f, exr_priv_part_t curpart, int adddefault)
                 f, EXR_ERR_MISSING_REQ_ATTR, "'lineOrder' attribute not found");
         }
     }
+    else if (curpart->lineOrder->type != EXR_ATTR_LINEORDER)
+        return f->print_error (
+            f,
+            EXR_ERR_ATTR_TYPE_MISMATCH,
+            "'lineOrder' attribute has wrong data type");
 
     if (!curpart->pixelAspectRatio)
     {
@@ -148,6 +166,11 @@ validate_req_attr (exr_context_t f, exr_priv_part_t curpart, int adddefault)
                 "'pixelAspectRatio' attribute not found");
         }
     }
+    else if (curpart->pixelAspectRatio->type != EXR_ATTR_FLOAT)
+        return f->print_error (
+            f,
+            EXR_ERR_ATTR_TYPE_MISMATCH,
+            "'pixelAspectRatio' attribute has wrong data type");
 
     if (!curpart->screenWindowCenter)
     {
@@ -173,6 +196,11 @@ validate_req_attr (exr_context_t f, exr_priv_part_t curpart, int adddefault)
                 "'screenWindowCenter' attribute not found");
         }
     }
+    else if (curpart->screenWindowCenter->type != EXR_ATTR_V2F)
+        return f->print_error (
+            f,
+            EXR_ERR_ATTR_TYPE_MISMATCH,
+            "'screenWindowCenter' attribute has wrong data type");
 
     if (!curpart->screenWindowWidth)
     {
@@ -197,14 +225,27 @@ validate_req_attr (exr_context_t f, exr_priv_part_t curpart, int adddefault)
                 "'screenWindowWidth' attribute not found");
         }
     }
+    else if (curpart->screenWindowWidth->type != EXR_ATTR_FLOAT)
+        return f->print_error (
+            f,
+            EXR_ERR_ATTR_TYPE_MISMATCH,
+            "'screenWindowWidth' attribute has wrong data type, expect float");
 
     if (f->is_multipart || f->has_nonimage_data)
     {
-        if (f->is_multipart && !curpart->name)
-            return f->print_error (
-                f,
-                EXR_ERR_MISSING_REQ_ATTR,
-                "'name' attribute for multipart file not found");
+        if (f->is_multipart)
+        {
+            if (!curpart->name)
+                return f->print_error (
+                    f,
+                    EXR_ERR_MISSING_REQ_ATTR,
+                    "'name' attribute for multipart file not found");
+            else if (curpart->name->type != EXR_ATTR_STRING)
+                return f->print_error (
+                    f,
+                    EXR_ERR_ATTR_TYPE_MISMATCH,
+                    "'name' attribute has wrong data type, expect string");
+        }
         if (!curpart->type)
         {
             return f->print_error (
@@ -212,6 +253,11 @@ validate_req_attr (exr_context_t f, exr_priv_part_t curpart, int adddefault)
                 EXR_ERR_MISSING_REQ_ATTR,
                 "'type' attribute for v2+ file not found");
         }
+        else if (curpart->type->type != EXR_ATTR_STRING)
+            return f->print_error (
+                f,
+                EXR_ERR_ATTR_TYPE_MISMATCH,
+                "'type' attribute has wrong data type, expect string");
         if (f->has_nonimage_data && !curpart->version)
         {
             if (adddefault)
@@ -341,16 +387,23 @@ validate_image_dimensions (exr_context_t f, exr_priv_part_t curpart)
 
 static exr_result_t
 validate_channels (
-    exr_context_t f, exr_priv_part_t curpart, const exr_attr_chlist_t* channels)
+    exr_context_t f, exr_priv_part_t curpart)
 {
-    exr_attr_box2i_t dw;
-    int64_t          w, h;
+    exr_attr_box2i_t         dw;
+    int64_t                  w, h;
+    const exr_attr_chlist_t* channels;
 
-    if (!channels)
-        return f->report_error (
+    if (!curpart->channels)
+        return f->print_error (
+            f, EXR_ERR_MISSING_REQ_ATTR, "'channels' attribute not found");
+    else if (curpart->channels->type != EXR_ATTR_CHLIST)
+        return f->print_error (
             f,
-            EXR_ERR_INVALID_ARGUMENT,
-            "Missing required channels attribute to validate against");
+            EXR_ERR_ATTR_TYPE_MISMATCH,
+            "'channels' attribute has wrong data type, expect chlist");
+
+    channels = curpart->channels->chlist;
+
     if (!curpart->dataWindow)
         return f->report_error (
             f,
@@ -527,6 +580,11 @@ validate_tile_data (exr_context_t f, exr_priv_part_t curpart)
                 f,
                 EXR_ERR_MISSING_REQ_ATTR,
                 "'tiles' attribute for tiled file not found");
+        else if (curpart->tiles->type != EXR_ATTR_TILEDESC)
+            return f->print_error (
+                f,
+                EXR_ERR_ATTR_TYPE_MISMATCH,
+                "'tiles' attribute has wrong data type, expect tile description");
 
         desc    = curpart->tiles->tiledesc;
         levmode = EXR_GET_TILE_LEVEL_MODE (*desc);
@@ -646,7 +704,7 @@ internal_exr_validate_read_part (exr_context_t f, exr_priv_part_t curpart)
     rv = validate_image_dimensions (f, curpart);
     if (rv != EXR_ERR_SUCCESS) return rv;
 
-    rv = validate_channels (f, curpart, curpart->channels->chlist);
+    rv = validate_channels (f, curpart);
     if (rv != EXR_ERR_SUCCESS) return rv;
 
     rv = validate_part_type (f, curpart);
@@ -680,9 +738,15 @@ internal_exr_validate_shared_attrs (exr_context_t ctxt,
     {
         if (curpart->displayWindow)
         {
-            if (memcmp (basepart->displayWindow->box2i,
-                        curpart->displayWindow->box2i,
-                        sizeof(exr_attr_box2i_t)))
+            if (basepart->displayWindow->type != EXR_ATTR_BOX2I ||
+                basepart->displayWindow->type !=
+                curpart->displayWindow->type)
+            {
+                rv = EXR_ERR_ATTR_TYPE_MISMATCH;
+            }
+            else if (memcmp (basepart->displayWindow->box2i,
+                             curpart->displayWindow->box2i,
+                             sizeof(exr_attr_box2i_t)))
                 rv = EXR_ERR_ATTR_TYPE_MISMATCH;
         }
         else
@@ -699,10 +763,15 @@ internal_exr_validate_shared_attrs (exr_context_t ctxt,
     {
         if (curpart->pixelAspectRatio)
         {
-            // NaN compares false, but if they're both NaN?
-            if (memcmp (&(basepart->pixelAspectRatio->f),
-                        &(curpart->pixelAspectRatio->f),
-                        sizeof(float)))
+            if (basepart->pixelAspectRatio->type != EXR_ATTR_FLOAT ||
+                basepart->pixelAspectRatio->type !=
+                curpart->pixelAspectRatio->type)
+            {
+                rv = EXR_ERR_ATTR_TYPE_MISMATCH;
+            }
+            else if (memcmp (&(basepart->pixelAspectRatio->f),
+                             &(curpart->pixelAspectRatio->f),
+                             sizeof(float)))
                 rv = EXR_ERR_ATTR_TYPE_MISMATCH;
         }
         else
@@ -717,9 +786,14 @@ internal_exr_validate_shared_attrs (exr_context_t ctxt,
     rv1 = exr_get_attribute_by_name (ctxt, curpartidx, "timecode", &cattr);
     if (EXR_ERR_SUCCESS == rv && rv == rv1)
     {
-        if (memcmp (battr->timecode,
-                    cattr->timecode,
-                    sizeof(exr_attr_timecode_t)))
+        if (battr->type != EXR_ATTR_TIMECODE ||
+            battr->type != cattr->type)
+        {
+            rv = EXR_ERR_ATTR_TYPE_MISMATCH;
+        }
+        else if (memcmp (battr->timecode,
+                         cattr->timecode,
+                         sizeof(exr_attr_timecode_t)))
         {
             rv = EXR_ERR_ATTR_TYPE_MISMATCH;
         }
@@ -737,9 +811,14 @@ internal_exr_validate_shared_attrs (exr_context_t ctxt,
     rv1 = exr_get_attribute_by_name (ctxt, curpartidx, "chromaticities", &cattr);
     if (EXR_ERR_SUCCESS == rv && rv == rv1)
     {
-        if (memcmp (battr->chromaticities,
-                    cattr->chromaticities,
-                    sizeof(exr_attr_chromaticities_t)))
+        if (battr->type != EXR_ATTR_CHROMATICITIES ||
+            battr->type != cattr->type)
+        {
+            rv = EXR_ERR_ATTR_TYPE_MISMATCH;
+        }
+        else if (memcmp (battr->chromaticities,
+                         cattr->chromaticities,
+                         sizeof(exr_attr_chromaticities_t)))
             rv = EXR_ERR_ATTR_TYPE_MISMATCH;
         else
             rv = EXR_ERR_SUCCESS;
@@ -768,7 +847,7 @@ internal_exr_validate_write_part (exr_context_t f, exr_priv_part_t curpart)
     rv = validate_image_dimensions (f, curpart);
     if (rv != EXR_ERR_SUCCESS) return rv;
 
-    rv = validate_channels (f, curpart, curpart->channels->chlist);
+    rv = validate_channels (f, curpart);
     if (rv != EXR_ERR_SUCCESS) return rv;
 
     rv = validate_part_type (f, curpart);
