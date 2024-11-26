@@ -30,6 +30,9 @@ using std::string;
 using std::to_string;
 using std::vector;
 
+namespace
+{
+
 size_t
 dumpManifest (const IDManifest& mfst)
 {
@@ -164,8 +167,14 @@ usageMessage (ostream& stream, const char* program_name, bool verbose = false)
                "";
 }
 
-int
-main (int argc, char* argv[])
+} // namespace
+
+#if defined(BUILD_MONOLITHIC)
+#    define main OpenEXR_exrmanifest_main
+#endif
+
+extern "C" int
+main (int argc, const char** argv)
 {
 
     if (argc < 2)

@@ -32,6 +32,9 @@ using std::set;
 using std::sort;
 using std::vector;
 
+namespace
+{
+
 void
 printHelp ()
 {
@@ -111,10 +114,15 @@ void drawCircle (
     int                              color,
     const uint32_t*                  ids);
 
-int
-main (int argc, char* argv[])
+
+#if defined(BUILD_MONOLITHIC)
+#    define main OpenEXR_deepId_example_main
+#endif
+
+extern "C" int
+main (int argc, const char** argv)
 {
-    char* outputFile   = nullptr;
+    const char* outputFile   = nullptr;
     bool  hash64       = false;
     bool  multivariate = false;
     bool  objectID     = false;
@@ -573,6 +581,8 @@ main (int argc, char* argv[])
     DeepScanLineOutputFile file (outputFile, h);
     file.setFrameBuffer (buf);
     file.writePixels (height);
+
+		return 0;
 }
 
 int
@@ -691,3 +701,5 @@ drawCircle (
         }
     }
 }
+
+} // namespace

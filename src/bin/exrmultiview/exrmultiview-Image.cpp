@@ -17,6 +17,9 @@ using namespace IMATH;
 using namespace IEX;
 using namespace IMF;
 
+namespace ExrMultiView
+{
+
 ImageChannel::ImageChannel (Image& image) : _image (image)
 {
     // empty
@@ -89,3 +92,5 @@ Image::channel (const string& name) const
 {
     return *_channels.find (name)->second;
 }
+
+} // namespace ExrMultiView

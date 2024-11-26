@@ -142,8 +142,12 @@ process_file (const char* filename, int verbose, int allmeta, int strict)
     return failcount;
 }
 
-int
-main (int argc, const char* argv[])
+#if defined(BUILD_MONOLITHIC)
+#    define main OpenEXR_exrinfo_main
+#endif
+
+extern "C" int
+main (int argc, const char** argv)
 {
     int rv = 0, verbose = 0, allmeta = 0, strict = 0;
 

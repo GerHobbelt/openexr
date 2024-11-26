@@ -156,8 +156,12 @@ getCompression (const string& str)
 
 } // namespace
 
-int
-main (int argc, char** argv)
+#if defined(BUILD_MONOLITHIC)
+#    define main OpenEXR_exrenvmap_main
+#endif
+
+extern "C" int
+main (int argc, const char** argv)
 {
     const char*       inFile            = 0;
     const char*       outFile           = 0;

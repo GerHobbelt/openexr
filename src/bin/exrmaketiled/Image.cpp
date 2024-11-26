@@ -17,6 +17,9 @@ using namespace IMF;
 using namespace IMATH_NAMESPACE;
 using namespace std;
 
+namespace ExrMakeTiled
+{
+
 ImageChannel::ImageChannel (Image& image) : _image (image)
 {
     // empty
@@ -86,3 +89,5 @@ Image::channel (const string& name) const
 {
     return *_channels.find (name)->second;
 }
+
+} // namespace ExrMakeTiled

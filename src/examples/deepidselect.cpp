@@ -50,15 +50,20 @@ struct match
 // setIds parses the matches arguments, and populates lists of matching IDs. If there are '--and' statements in the matches
 // ids are entered in a new list
 //
-void setIds (
+static void setIds (
     const IDManifest&       mfst,
     list<list<match>>&      ids,
     const char*             matches[],
     int                     numMatches,
     const map<string, int>& channelToPos);
 
-int
-main (int argc, const char* argv[])
+
+#if defined(BUILD_MONOLITHIC)
+#    define main OpenEXR_deepIdSelect_example_main
+#endif
+
+extern "C" int
+main (int argc, const char** argv)
 {
     if (argc < 4)
     {
@@ -365,9 +370,10 @@ main (int argc, const char* argv[])
             }
         }
     }
+    return 0;
 }
 
-void
+static void
 setIds (
     const IDManifest&       mfst,
     list<list<match>>&      ids,

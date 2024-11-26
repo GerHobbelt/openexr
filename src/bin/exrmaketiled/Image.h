@@ -23,6 +23,9 @@
 
 #include "namespaceAlias.h"
 
+namespace ExrMakeTiled
+{
+
 class Image;
 
 class ImageChannel
@@ -202,5 +205,7 @@ Image::typedChannel (const std::string& name) const
 {
     return dynamic_cast<const TypedImageChannel<T>&> (channel (name));
 }
+
+} // namespace ExrMakeTiled
 
 #endif

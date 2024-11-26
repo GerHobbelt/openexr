@@ -21,6 +21,9 @@
 using namespace OPENEXR_IMF_NAMESPACE;
 using namespace std;
 
+namespace
+{
+
 void
 usageMessage (ostream& stream, const char* program_name, bool verbose = false)
 {
@@ -98,8 +101,15 @@ exrCheck (
     }
 }
 
-int
-main (int argc, char** argv)
+} // namespace
+
+
+#if defined(BUILD_MONOLITHIC)
+#    define main OpenEXR_exrcheck_main
+#endif
+
+extern "C" int
+main (int argc, const char** argv)
 {
     if (argc < 2)
     {

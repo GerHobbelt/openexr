@@ -51,6 +51,9 @@ using namespace OPENEXR_IMF_NAMESPACE;
 #    define IMF_PATH_SEPARATOR "/"
 #endif
 
+namespace
+{
+
 void
 copy_tile (
     MultiPartInputFile&  input,
@@ -288,18 +291,20 @@ convert (
         ++channel_count;
     }
 
-    Box2i dataWindow  = infile.header (0).dataWindow ();
+    Box2i dataWindow = infile.header (0).dataWindow ();
     //
     // use int64_t for dimensions, since possible overflow int storage
     //
-    int64_t pixel_count = (static_cast<int64_t>(dataWindow.size ().y) + 1) * (static_cast<int64_t>(dataWindow.size ().x) + 1);
-    int64_t pixel_width = static_cast<int64_t>(dataWindow.size ().x) + 1;
+    int64_t pixel_count = (static_cast<int64_t> (dataWindow.size ().y) + 1) *
+                          (static_cast<int64_t> (dataWindow.size ().x) + 1);
+    int64_t pixel_width = static_cast<int64_t> (dataWindow.size ().x) + 1;
 
     //
     // offset in pixels between base of array and 0,0
     // use int64_t for dimensions, since dataWindow.min.y * pixel_width could overflow int storage
     //
-    int64_t pixel_base = static_cast<int64_t>(dataWindow.min.y) * pixel_width + static_cast<int64_t>(dataWindow.min.x);
+    int64_t pixel_base = static_cast<int64_t> (dataWindow.min.y) * pixel_width +
+                         static_cast<int64_t> (dataWindow.min.x);
 
     vector<vector<char>> channelstore (channel_count);
 
@@ -614,8 +619,14 @@ usageMessage (ostream& stream, const char* program_name, bool verbose = false)
                "";
 }
 
-int
-main (int argc, char* argv[])
+} // namespace
+
+#if defined(BUILD_MONOLITHIC)
+#    define main OpenEXR_exrmultipart_main
+#endif
+
+extern "C" int
+main (int argc, const char** argv)
 {
     try
     {

@@ -23,6 +23,9 @@
 using namespace OPENEXR_IMF_NAMESPACE;
 using namespace std;
 
+namespace
+{
+
 void
 usageMessage (ostream& stream, const char* program_name, bool verbose = false)
 {
@@ -55,8 +58,14 @@ usageMessage (ostream& stream, const char* program_name, bool verbose = false)
                "";
 }
 
-int
-main (int argc, char** argv)
+} // namespace
+
+#if defined(BUILD_MONOLITHIC)
+#    define main OpenEXR_exrmakepreview_main
+#endif
+
+extern "C" int
+main (int argc, const char** argv)
 {
     const char* inFile       = 0;
     const char* outFile      = 0;

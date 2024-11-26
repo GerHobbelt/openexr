@@ -34,8 +34,13 @@ using namespace std;
 // Main - prints the half-to-float lookup table
 //---------------------------------------------
 
-int
-main ()
+
+#if defined(BUILD_MONOLITHIC)
+#    define main OpenEXR_b44ExpLogTable_tool_main
+#endif
+
+extern "C" int
+main (void)
 {
 #ifndef HAVE_IOS_BASE
     cout.setf (ios::hex, ios::basefield);

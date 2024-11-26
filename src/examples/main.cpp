@@ -16,8 +16,12 @@
 #include <iostream>
 #include <stdexcept>
 
-int
-main (int argc, char* argv[])
+#if defined(BUILD_MONOLITHIC)
+#    define main OpenEXR_examples_main
+#endif
+
+extern "C" int
+main (int argc, const char** argv)
 {
     try
     {

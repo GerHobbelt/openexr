@@ -24,6 +24,9 @@
 
 #include "namespaceAlias.h"
 
+namespace ExrMultiView
+{
+
 class Image;
 
 class ImageChannel
@@ -218,5 +221,7 @@ Image::typedChannel (const std::string& name) const
 {
     return dynamic_cast<const TypedImageChannel<T>&> (channel (name));
 }
+
+} // namespace ExrMakeTiled
 
 #endif

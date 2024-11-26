@@ -24,9 +24,13 @@
 #include <map>
 
 #include "namespaceAlias.h"
+
 using namespace IMF;
 using namespace IMATH_NAMESPACE;
 using namespace std;
+
+namespace ExrMultiView
+{
 
 void
 makeMultiView (
@@ -139,3 +143,5 @@ makeMultiView (
             header.dataWindow ().max.y - header.dataWindow ().min.y + 1);
     }
 }
+
+} // namespace ExrMultiView

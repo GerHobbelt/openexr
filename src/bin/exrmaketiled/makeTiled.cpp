@@ -33,9 +33,11 @@
 #include <vector>
 
 #include "namespaceAlias.h"
+
 using namespace IMF;
 using namespace IMATH_NAMESPACE;
 using namespace std;
+using namespace ExrMakeTiled;
 
 namespace
 {

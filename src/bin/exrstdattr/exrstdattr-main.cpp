@@ -44,6 +44,9 @@ using namespace std;
 using namespace OPENEXR_IMF_NAMESPACE;
 using namespace IMATH_NAMESPACE;
 
+namespace
+{
+
 void
 usageMessage (ostream& stream, const char* program_name, bool verbose = false)
 {
@@ -206,7 +209,7 @@ usageMessage (ostream& stream, const char* program_name, bool verbose = false)
                "\n"
                "Other options:\n"
                "\n"
-	       "  -erase s      remove attribute with given name\n" 
+               "  -erase s      remove attribute with given name\n"
                "  -h, --help    print this message\n"
                "      --version print version information\n"
                "\n"
@@ -228,13 +231,11 @@ struct SetAttr
 struct EraseAttr
 {
     string name;
-    int part;
-     EraseAttr (const string& name, int part)
-         : name (name), part (part)
-     {}
+    int    part;
+    EraseAttr (const string& name, int part) : name (name), part (part) {}
 };
 
-typedef vector<SetAttr> SetAttrVector;
+typedef vector<SetAttr>   SetAttrVector;
 typedef vector<EraseAttr> EraseAttrVector;
 
 void
@@ -332,11 +333,11 @@ void
 getFloat (
     const char     attrName[],
     int            argc,
-    char**         argv,
+    const char**   argv,
     int&           i,
     int            part,
     SetAttrVector& attrs,
-    void (*check) (const char attrName[], float f) = 0)
+    void           (*check) (const char attrName[], float f) = 0)
 {
     if (i > argc - 2) throw invalid_argument ("Expected a float");
 
@@ -352,7 +353,7 @@ void
 getPosFloatOrInf (
     const char     attrName[],
     int            argc,
-    char**         argv,
+    const char**   argv,
     int&           i,
     int            part,
     SetAttrVector& attrs)
@@ -387,11 +388,11 @@ void
 getV2f (
     const char     attrName[],
     int            argc,
-    char**         argv,
+    const char**   argv,
     int&           i,
     int            part,
     SetAttrVector& attrs,
-    void (*check) (const char attrName[], const V2f& v) = 0)
+    void           (*check) (const char attrName[], const V2f& v) = 0)
 {
     if (i > argc - 3) throw invalid_argument ("Expected two floats");
 
@@ -409,11 +410,11 @@ void
 getRational (
     const char     attrName[],
     int            argc,
-    char**         argv,
+    const char**   argv,
     int&           i,
     int            part,
     SetAttrVector& attrs,
-    void (*check) (const char attrName[], const Rational& r) = 0)
+    void           (*check) (const char attrName[], const Rational& r) = 0)
 {
     if (i > argc - 3) throw invalid_argument ("Expected a rational");
 
@@ -429,11 +430,11 @@ void
 getString (
     const char     attrName[],
     int            argc,
-    char**         argv,
+    const char**   argv,
     int&           i,
     int            part,
     SetAttrVector& attrs,
-    void (*check) (const char attrName[], const char str[]) = 0)
+    void           (*check) (const char attrName[], const char str[]) = 0)
 {
     if (i > argc - 2) throw invalid_argument ("Expected a string");
 
@@ -446,7 +447,7 @@ getString (
 }
 
 void
-getNameAndString (int argc, char** argv, int& i, int part, SetAttrVector& attrs)
+getNameAndString (int argc, const char** argv, int& i, int part, SetAttrVector& attrs)
 {
     if (i > argc - 3) throw invalid_argument ("Expected a name and string");
 
@@ -456,10 +457,8 @@ getNameAndString (int argc, char** argv, int& i, int part, SetAttrVector& attrs)
     i += 3;
 }
 
-
-
 void
-getNameAndFloat (int argc, char** argv, int& i, int part, SetAttrVector& attrs)
+getNameAndFloat (int argc, const char** argv, int& i, int part, SetAttrVector& attrs)
 {
     if (i > argc - 3) throw invalid_argument ("Expected a name and a float");
 
@@ -470,7 +469,7 @@ getNameAndFloat (int argc, char** argv, int& i, int part, SetAttrVector& attrs)
 }
 
 void
-getNameAndInt (int argc, char** argv, int& i, int part, SetAttrVector& attrs)
+getNameAndInt (int argc, const char** argv, int& i, int part, SetAttrVector& attrs)
 {
     if (i > argc - 3) throw invalid_argument ("Expected a name and an integer");
 
@@ -481,21 +480,20 @@ getNameAndInt (int argc, char** argv, int& i, int part, SetAttrVector& attrs)
 }
 
 void
-getName (int argc, char** argv, int& i, int part, EraseAttrVector& attrs)
+getName (int argc, const char** argv, int& i, int part, EraseAttrVector& attrs)
 {
     if (i > argc - 2) throw invalid_argument ("Expected a name and an integer");
 
     const char* attrName = argv[i + 1];
-    attrs.push_back (EraseAttr(attrName, part));
+    attrs.push_back (EraseAttr (attrName, part));
     i += 2;
 }
-
 
 void
 getChromaticities (
     const char     attrName[],
     int            argc,
-    char**         argv,
+    const char**   argv,
     int&           i,
     int            part,
     SetAttrVector& attrs)
@@ -521,14 +519,14 @@ void
 getEnvmap (
     const char     attrName[],
     int            argc,
-    char**         argv,
+    const char**   argv,
     int&           i,
     int            part,
     SetAttrVector& attrs)
 {
     if (i > argc - 2) throw invalid_argument ("Expected an env map");
 
-    char*  str = argv[i + 1];
+    const char* str = argv[i + 1];
     Envmap type;
 
     if (!strcmp (str, "latlong") || !strcmp (str, "LATLONG"))
@@ -555,7 +553,7 @@ void
 getKeyCode (
     const char     attrName[],
     int            argc,
-    char**         argv,
+    const char**   argv,
     int&           i,
     int            part,
     SetAttrVector& attrs)
@@ -579,7 +577,7 @@ void
 getTimeCode (
     const char     attrName[],
     int            argc,
-    char**         argv,
+    const char**   argv,
     int&           i,
     int            part,
     SetAttrVector& attrs)
@@ -595,7 +593,7 @@ getTimeCode (
 }
 
 void
-getPart (const char attrName[], int argc, char** argv, int& i, int& part)
+getPart (const char attrName[], int argc, const char** argv, int& i, int& part)
 {
     if (i > argc - 2)
         throw invalid_argument ("Expected a part number (or \"any\")");
@@ -608,8 +606,14 @@ getPart (const char attrName[], int argc, char** argv, int& i, int& part)
     i += 2;
 }
 
-int
-main (int argc, char** argv)
+} // namespace
+
+#if defined(BUILD_MONOLITHIC)
+#    define main OpenEXR_exrstdattr_main
+#endif
+
+extern "C" int
+main (int argc, const char** argv)
 {
     //
     // Parse the command line.

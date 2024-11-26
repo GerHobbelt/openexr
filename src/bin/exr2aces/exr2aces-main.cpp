@@ -114,8 +114,13 @@ exr2aces (const char inFileName[], const char outFileName[], bool verbose)
 
 } // namespace
 
+#if defined(BUILD_MONOLITHIC)
+#define main   OpenEXR_exr2aces_main
+#endif
+
+extern "C"
 int
-main (int argc, char** argv)
+main (int argc, const char** argv)
 {
     const char* inFile  = 0;
     const char* outFile = 0;

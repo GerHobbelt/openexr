@@ -91,8 +91,12 @@ getCompression (const string& str)
 
 } // namespace
 
-int
-main (int argc, char** argv)
+#if defined(BUILD_MONOLITHIC)
+#    define main OpenEXR_exrmultiview_main
+#endif
+
+extern "C" int
+main (int argc, const char** argv)
 {
     vector<string>      views;
     vector<const char*> inFiles;

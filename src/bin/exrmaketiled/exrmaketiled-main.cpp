@@ -24,6 +24,7 @@
 #include <string>
 
 #include "namespaceAlias.h"
+
 using namespace IMF;
 using namespace std;
 
@@ -130,7 +131,7 @@ getExtrapolation (const string& str)
 }
 
 void
-getPartNum (int argc, char** argv, int& i, int* j)
+getPartNum (int argc, const char** argv, int& i, int* j)
 {
     if (i > argc - 2)
         throw invalid_argument ("Missing part num with -p option");
@@ -142,8 +143,12 @@ getPartNum (int argc, char** argv, int& i, int* j)
 
 } // namespace
 
-int
-main (int argc, char** argv)
+#if defined(BUILD_MONOLITHIC)
+#    define main OpenEXR_exrmaketiled_main
+#endif
+
+extern "C" int
+main (int argc, const char** argv)
 {
     const char*       inFile       = 0;
     const char*       outFile      = 0;
