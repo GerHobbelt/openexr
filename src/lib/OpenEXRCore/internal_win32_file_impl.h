@@ -411,7 +411,7 @@ make_temp_filename (exr_context_t ret)
     uint64_t    tlen, newlen;
     const char* srcfile = ret->filename.str;
     int         nwr =
-        _snprintf_s (tmproot, 32, _TRUNCATE, "tmp.%d", GetCurrentProcessId ());
+        _snprintf_s (tmproot, 32, _TRUNCATE, "tmp.%u", (unsigned int)GetCurrentProcessId ());
     if (nwr >= 32)
         return ret->report_error (
             ret,
