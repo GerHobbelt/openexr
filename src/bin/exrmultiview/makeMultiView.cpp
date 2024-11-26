@@ -28,9 +28,7 @@
 using namespace IMF;
 using namespace IMATH_NAMESPACE;
 using namespace std;
-
-namespace ExrMultiView
-{
+using namespace ExrMultiView;
 
 void
 makeMultiView (
@@ -143,5 +141,3 @@ makeMultiView (
             header.dataWindow ().max.y - header.dataWindow ().min.y + 1);
     }
 }
-
-} // namespace ExrMultiView
