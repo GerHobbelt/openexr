@@ -37,6 +37,8 @@
 #include <iomanip>
 #include <iostream>
 
+#include <monolithic_examples.h>
+
 using namespace OPENEXR_IMF_NAMESPACE;
 using namespace std;
 

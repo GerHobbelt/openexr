@@ -25,6 +25,8 @@
 #include <map>
 #include <vector>
 
+#include <monolithic_examples.h>
+
 using namespace OPENEXR_IMF_NAMESPACE;
 using namespace IMATH_NAMESPACE;
 

@@ -21,6 +21,8 @@
 #include <string.h>
 #include <string>
 
+#include <monolithic_examples.h>
+
 #include <OpenEXRConfig.h>
 using namespace OPENEXR_IMF_NAMESPACE;
 using namespace IMATH_NAMESPACE;

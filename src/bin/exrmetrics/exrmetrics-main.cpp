@@ -18,6 +18,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <monolithic_examples.h>
+
 using std::cerr;
 using std::cout;
 using std::endl;

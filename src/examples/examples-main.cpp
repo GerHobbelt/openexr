@@ -16,6 +16,8 @@
 #include <iostream>
 #include <stdexcept>
 
+#include <monolithic_examples.h>
+
 #if defined(BUILD_MONOLITHIC)
 #    define main OpenEXR_examples_main
 #endif

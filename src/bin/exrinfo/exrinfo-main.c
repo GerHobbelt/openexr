@@ -17,6 +17,8 @@
 
 #include <stdlib.h>
 
+#include <monolithic_examples.h>
+
 static void
 usage (FILE* stream, const char* argv0, int verbose)
 {

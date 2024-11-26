@@ -25,6 +25,8 @@
 #include <set>
 #include <vector>
 
+#include <monolithic_examples.h>
+
 using namespace OPENEXR_IMF_NAMESPACE;
 
 using std::cerr;

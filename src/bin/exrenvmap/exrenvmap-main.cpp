@@ -26,6 +26,8 @@
 #include <string.h>
 #include <string>
 
+#include <monolithic_examples.h>
+
 #include "namespaceAlias.h"
 using namespace IMF;
 using namespace std;

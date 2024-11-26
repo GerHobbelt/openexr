@@ -28,6 +28,8 @@
 #include <iostream>
 #include <math.h>
 
+#include <monolithic_examples.h>
+
 using namespace std;
 
 //---------------------------------------------

@@ -38,6 +38,8 @@
 #include <utility> // pair
 #include <vector>
 
+#include <monolithic_examples.h>
+
 using IMATH_NAMESPACE::Box2i;
 using namespace std;
 
