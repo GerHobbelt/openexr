@@ -176,7 +176,6 @@ usageMessage (ostream& stream, const char* program_name, bool verbose = false)
 extern "C" int
 main (int argc, const char** argv)
 {
-
     if (argc < 2)
     {
         usageMessage (cerr, argv[0], false);
@@ -216,4 +215,6 @@ main (int argc, const char** argv)
     }
 
     for (int i = 1; i < argc; ++i) {}
+
+		return 0;
 }
