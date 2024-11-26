@@ -444,7 +444,7 @@ void
 fpExc_ (int x)
 {
     if (fpeHandler != 0) { fpeHandler (x, ""); }
-    else { assert (0 != "Floating point exception"); }
+    else { assert (nullptr != "Floating point exception"); }
 }
 } // namespace
 
