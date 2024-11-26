@@ -506,7 +506,7 @@ generateLutHeader ()
         for (size_t value = 0; value < workers[i]->numValues (); ++value)
         {
             if (offsetIdx % 8 == 0) { printf ("    "); }
-            printf ("%6lu, ", workers[i]->offset ()[value] + offsetPrev);
+            printf ("%6zu, ", workers[i]->offset ()[value] + offsetPrev);
             if (offsetIdx % 8 == 7) { printf ("\n"); }
             offsetIdx++;
         }
