@@ -1644,8 +1644,11 @@ init_OpenEXR_old(PyObject* module)
     PyModule_AddObject (module, "OutputFile", (PyObject*) &OutputFile_Type);
 
     OpenEXR_error = PyErr_NewException ((char*) "OpenEXR.error", NULL, NULL);
-    PyDict_SetItemString (moduleDict, "error", OpenEXR_error);
-    Py_DECREF (OpenEXR_error);
+    if (OpenEXR_error)
+    {
+	PyDict_SetItemString (moduleDict, "error", OpenEXR_error);
+	Py_DECREF (OpenEXR_error);
+    }
 
     PyObject *item;
 
